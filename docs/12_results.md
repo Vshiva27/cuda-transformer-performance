@@ -111,8 +111,8 @@ Tile sizes, v3 at n = 1024: 8 → 524.0, 16 → 783.1, 32 → 814.5.
 - cuBLAS FP32 at n = 512 (5,020 GFLOP/s*) beats its own n = 1024 result. The 3 MB working set fits
   in L2.
 - *Contradicted prediction:* 04 §7 expected the 32×1 block shape to suffer from low occupancy.
-  It was the **fastest** v2 shape. Occupancy is not the whole story; finding out why is a
-  Nsight Compute task (Phase 10).
+  It was the **fastest** v2 shape. Profiling (§8, question 1) showed why: 35% less DRAM
+  traffic, not better occupancy.
 
 ---
 
@@ -199,9 +199,8 @@ v2 block size at 4096×1024: 32 → 177.8, 64 → 191.1, 128 → 227.2, **256 �
   higher (a branch, and an extra exp whenever the max changes). **Online softmax's value is
   enabling fusion** (FlashAttention, §6), not speeding up standalone softmax.
 - *Contradicted prediction:* 05 §11 expected warp-per-row to win at 16384×1024. Block-per-row
-  won by 1.8×. The likely cause is per-row parallelism and memory-level parallelism (32 lanes
-  looping 32 times per pass vs 256 threads looping 4 times), but this is unverified. It's a
-  Phase 10 Nsight question.
+  won by 1.8×. Profiling (§8, question 2) showed the cause: warp-per-row re-reads its rows from
+  DRAM (2.77× the input), because too many rows are in flight to stay in L2 between passes.
 - Block size 1024 collapses v2 to 52 GB/s: one block per SM, and 10 barrier levels per reduction.
 
 ---
@@ -296,8 +295,9 @@ KV cache size for GPT-2 small in FP16: 36 KB per token, 72 MB per 2,048-token se
   of its separately timed kernels (5.09 ms), while at seq 2048 the two agree (18.38 vs 18.60 ms).
   The fused time (12.05 ms) also breaks the ~4× per doubling scaling (1.82 ms at 512, 29.3 ms at
   2048). The causal-1024 and KV-cache-1024 rows, measured minutes later, are consistent. The
-  likely cause is clock or power throttling during that measurement (only 10 iterations). **Rerun
-  `./build/bench_attention` before quoting the seq-1024 non-causal numbers.**
+  likely cause is clock or power throttling during that measurement (only 10 iterations).
+  **Resolved by the Nsight Systems timeline (Phase 10):** seq 1024 measured **4.12 ms unfused**
+  and **5.08 ms fused** (medians of 5 launches). Quote those numbers instead.
 
 ---
 
@@ -314,13 +314,27 @@ KV cache size for GPT-2 small in FP16: 36 KB per token, 72 MB per 2,048-token se
 | Attention (causal) | 12×2048×64 | FP32 | – | – | 18.17 ms (unfused) | 15.02 ms (fused) | 1.21× | T4 |
 | Attention decode | 1 × 2048 ctx | FP32 | – | – | 15.09 ms (recompute) | 0.503 ms (KV cache) | **30×** | T4 |
 
-## 8. Open questions for profiling (Phase 10)
+## 8. Open questions, answered by profiling (Phase 10)
 
-These are measured effects whose cause is not yet confirmed:
-1. Why is v2 GEMM fastest with 32×1 blocks, despite the lower occupancy limit?
-2. Why does warp-per-row softmax lose to block-per-row at 1,024 columns?
-3. How far is v4 from the T4's *actual* sustained clock, and is it limited by shared memory or
-   by instruction issue? (v4 = 60% of cuBLAS.)
-4. Confirm that the WMMA kernel is limited by global-memory loads (expected: high L2/DRAM
-   throughput, low Tensor Core utilization).
-5. Rerun attention at seq 1024 to settle the † row.
+Details and all metric values: [10_nsight_profiling.md §9](10_nsight_profiling.md).
+
+1. **Why is v2 GEMM fastest with 32×1 blocks?** Not occupancy and not L1 (its L1 hit rate was
+   *worse*, 19.8% vs 87.4%). It reads **35% less from DRAM** (129 vs 199 MB, L2 hit rate 98% vs
+   81%) and its warps wait half as long on the global-memory instruction queue. At the profiler's
+   locked base clock the two shapes tie; at boost clock, the lower DRAM traffic gives the 13%.
+2. **Why does block-per-row softmax beat warp-per-row at 1,024 columns?** Warp-per-row keeps
+   ~5 MB of rows in flight, more than the 4 MB L2, so its 3 passes re-read x from DRAM: **2.77×
+   the input size** (186 MB) vs **1.22×** for block-per-row (81.7 MB).
+3. **What limits v4 at 60% of cuBLAS?** No spills, no bank conflicts, FMA the busiest pipe
+   (41%). The limits are a **tail effect (2.13 waves; ncu estimates up to 33%)**, **75%
+   occupancy capped by 72 registers per thread**, and latency (0.86 eligible warps per
+   scheduler).
+4. **Is WMMA starved by global loads?** Yes: issue slots 5.5% busy, 110.6 of 124 cycles per
+   instruction waiting on the global-memory instruction queue, SM throughput 17%.
+5. **The † attention row:** the Nsight Systems timeline measured seq 1024 at **4.12 ms unfused**
+   and **5.08 ms fused** (medians of 5), confirming the benchmark row was inflated by clock
+   throttling, which the timeline shows directly: one kernel varied 36.8–92.5 ms across 5
+   launches.
+
+**Bonus confirmation:** DRAM byte counters show fusion moves **22.05 → 18.12 bytes per element**,
+a ratio of 1.22, matching the measured 1.21× fusion speedup.

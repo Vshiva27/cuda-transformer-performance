@@ -374,10 +374,97 @@ Each hypothesis is a **prediction**. §9 records whether it held.
 
 ---
 
-## 9. Measured results
+## 9. Measured results (Tesla T4, Nsight Compute 2025.3.1, CUDA 13.0)
 
-*(Empty until profiling reports are available. For each hypothesis H1–H13: the metric values,
-✔ / ✘, and the explanation.)*
+Source: [`profiling/reports/`](../profiling/reports/), i.e. `resource_usage.txt`,
+`timeline_all_stats.txt`, `ncu_<case>_details.txt` and `ncu_<case>_metrics.csv`. The CSV
+tables can be pivoted to one row per kernel with `node profiling/pivot_metrics.js <csv>`.
+Nsight Compute ran at the locked base clock (**585 MHz**, `sm__cycles_elapsed.avg.per_second`)
+with caches flushed, so its durations are about 2.5× the benchmark durations. Compare
+percentages and byte counts, not milliseconds.
+
+### 9.1 Resource usage (cuobjdump): no spills anywhere
+
+**Every kernel has `LOCAL:0`**: no register spills, and every register-tile array (`acc[4][4]`,
+`a_reg`, `b_reg`, LayerNorm's `vals[]`, attention's `q[]`/`o[]`) really lives in registers.
+Selected values:
+
+| Kernel | REG | SHARED (bytes) |
+|---|---|---|
+| matmul_naive / coalesced | 52 | 0 |
+| matmul_tiled<32> | 42 | 8,192 |
+| **matmul_register** | **72** | 4,096 |
+| matmul_wmma | 64 | 0 |
+| softmax_warp / online | 46 / 20 | 0 |
+| layernorm_block<512,8> | 33 | 64 |
+| attention_fused<64> | 35 | 16,384 |
+| batched_gemm<32> | 46 | 8,320 (= 32·32 + 32·33 floats: the padded tile) |
+
+### 9.2 Nsight Systems (timeline, boost clocks)
+
+- **Clock throttling is real on the Colab T4.** Five identical launches of GEMM v1 took
+  between **36.8 ms and 92.5 ms** (median 69.1 ms). Long kernels slow down as the GPU hits its
+  power and thermal limits.
+- That explains the † row in 12_results §6. In the timeline, attention at seq 1024 took
+  **4.12 ms unfused** and **5.08 ms fused** (NVTX medians), not the 9.25 / 12.05 ms of the
+  outlier benchmark row. The ratio (fused slower for non-causal) is unchanged.
+- First launches are slower: the first `vector_add` launch took 3.17 ms vs a median of 0.80 ms
+  (module loading). This is why every benchmark warms up first.
+- `cudaLaunchKernel`: median 15.9 µs per call (min 6.2 µs) in this program, where every launch
+  is followed by a synchronization. For a kernel shorter than that, the launch costs more than
+  the work.
+
+### 9.3 Hypotheses
+
+| # | Hypothesis | Measured | Verdict |
+|---|---|---|---|
+| H1 | v1: sectors/request ≫ 4, high L1 hit rate, memory stalls | **16.50 sectors/request**: exactly (32 + 1)/2, the 04 §5 prediction for strided A + broadcast B. ncu: "85% of sectors excessive (uncoalesced)". L1 hit **98.0%**. 445 cycles per issued instruction, dominated by **LG Throttle** (435 cycles: the global-memory instruction queue is full). DRAM read 433 MB for 8 MB of inputs | ✔ (the stall is LG Throttle rather than Long Scoreboard, but in the same memory family) |
+| H2 | v2: sectors/request 1–4, DRAM ≫ 12 MB, memory-limited | **2.50 sectors/request** = (1 + 4)/2 exactly. DRAM read 199 MB. L1/TEX throughput 81% (the busiest unit) | ✔ v2 is bound by L1 traffic, not DRAM |
+| H3 | 32×1 beats 32×8 via a **better L1** hit rate | L1 hit **19.8% vs 87.4%** (worse, not better). But L2 hit **98.1% vs 80.7%**, DRAM reads **129 vs 199 MB** (−35%), and cycles per issued instruction **16.8 vs 33.3** (half the LG-queue stalls: 9.2 vs 24.8 cycles). Durations at base clock: **equal** (7.10 vs 7.07 ms) | ✘ as stated. The real difference is **less DRAM traffic and less queue contention with half the warps**. At base clock that's a tie; at boost clock (compute 2.7× faster, DRAM unchanged), the lower DRAM traffic wins (the +13% in the benchmark). Occupancy halved (49.7% vs 98.7%) without hurting. |
+| H4 | v3: 0 bank conflicts, shared-memory stalls | **0** load and **0** store bank conflicts. **4.00 sectors/request** (perfect coalescing). Dominant stall **MIO Throttle** (24.4 cycles: shared-memory queue full). DRAM read 147 MB | ✔ |
+| H5 | v4: no spills, much better FMA use; the gap to cuBLAS visible | LOCAL 0. **0 bank conflicts** (the strided 4×4 ownership works). FMA = busiest pipe at **41.1%**. Cycles per instruction **12.95** (v3: 37.9). DRAM read **32.9 MB** (v3: 147 MB, 4.5× less). Remaining limits: (a) **75% theoretical occupancy, limited by 72 registers/thread** (3 blocks/SM); (b) **2.13 waves**: the last partial wave may cost up to 33% (ncu estimate); (c) only 0.86 eligible warps per scheduler (latency-bound) | ✔ The gap to cuBLAS is explained by the tail effect, the register-limited occupancy, and latency |
+| H6 | WMMA: Tensor Cores starved, memory stalls | Issue slots busy **5.5%**, **124 cycles per instruction**, of which **110.6 in LG Throttle**. SM throughput 17%. "50% excessive sectors" (16-element half rows = 32-byte pieces) | ✔ Tensor Cores idle waiting for global loads |
+| H7 | softmax 16384×1024: v2 higher DRAM throughput than v3; v3 more Long Scoreboard | v3 waits on memory (Long Scoreboard 32.7 cycles/instruction) ✔. But **v3 has the higher DRAM throughput (86.5% vs 49.7%)** because it **reads x 2.77× from DRAM** (186 MB for a 67 MB input) vs v2's **1.22×** (81.7 MB). With one warp per row, ~32 rows × 4 KB per SM are in flight across 40 SMs (≈ 5 MB), more than the 4 MB L2, so rows are evicted between the 3 passes. v2 keeps few rows in flight, so passes 2–3 hit L1/L2 (L1 hit 41%) | ✘ / ✔ (the mechanism is **re-reading from DRAM**, not DRAM throughput). At base clock both take ~1.0 ms; at boost, v2's lower traffic wins (1.8× in the benchmark) |
+| H8 | softmax v4: higher special-function (XU) use than v3 | XU never appears as the busiest pipe. v4 issues more instructions (issue slots 29.1% vs 19.4%), and **reads as much DRAM as v3** (199 vs 186 MB): its saved pass didn't save DRAM traffic | ~ (XU share not visible in the text export; the "no DRAM saving" part explains 12_results §4) |
+| H9 | LayerNorm v3 ≈ 8 B/element; v2 more | v3: 148 MB read + 150 MB written = **8.88 B/element** (ideal 8). v2: **19.8 B/element** (re-reads), stalled 98.7 cycles/instruction on memory, issue slots 6.9% | ✔ |
+| H10 | fusion: unfused ≈ 20, fused ≈ 16 B/element | Unfused (vector_add + v3): **740 MB = 22.05 B/element**. Fused: **608 MB = 18.12 B/element**. Ratio **1.22**: the benchmark speedup was 1.21× | ✔ **The fusion speedup is fully explained by DRAM bytes** (both ~10% above the ideal counts, from write overhead) |
+| H11 | batched GEMM with `Bs[32][33]`: 0 store conflicts | **0** load and **0** store bank conflicts for the transposed (QKᵀ) variant | ✔ the padding works |
+| H12 | fused attention: low FMA use, shared/shuffle stalls | **FMA is the busiest pipe at 60.3%**, issue slots **59.7%** busy, 12.8 cycles/instruction, DRAM 0.4% | ✘ as stated: the kernel is **instruction-issue-bound** (busy, not starved). It executes many more instructions per useful FLOP than the GEMMs (per-key dot products + shuffles + rescaling, one key at a time). Same conclusion as 07 §6: it needs GEMM-style tiles / Tensor Cores |
+| H13 | decode (q_len = 1): few waves, latency-bound | **0.07 waves** (12 blocks for 40 SMs), achieved occupancy **25%**, SM 3.3%, DRAM 4.9%. Dominant stall: **Barrier** (14.0 cycles): the 7 inactive warps of each block wait at `__syncthreads()` while one warp works | ✔ the GPU is almost empty; split the keys across blocks (flash-decoding) |
+
+### 9.4 One unexpected measurement
+
+**Shared-memory store "bank conflicts" in the fused attention kernel:** 675,893 (non-causal)
+and 382,510 (causal; ncu: "10.23% of the 3,737,514 shared store wavefronts"). The stores
+`Ks[r][c]`/`Vs[r][c]` are written by 32 lanes to 32 consecutive words, which by address analysis
+(04 §18) is conflict-free, and the identical pattern in other kernels measured 0. **The cause is
+not yet determined.** The next step is the Source page in the Nsight Compute GUI
+(`ncu_attention.ncu-rep`), which attributes excess shared-memory wavefronts to individual SASS
+instructions. The cost is bounded: about 10% extra store wavefronts in a kernel whose
+bottleneck is instruction issue (H12).
+
+### 9.5 What profiling changed in our understanding
+
+1. **Each GEMM step was confirmed by the counters:** sectors/request 16.5 → 2.5 → 4.0 (coalesced
+   and staged); DRAM reads 433 → 199 → 147 → 33 MB; stall reason LG Throttle → MIO Throttle →
+   (none dominant, FMA busiest). That's one bottleneck removed per version.
+2. **Occupancy is not the goal:** v2 at 49.7% occupancy matched v2 at 98.7%; v4 at 66% is the
+   fastest FP32 kernel.
+3. **Cache capacity explains two "surprises":** v2 32×1 (less DRAM traffic) and softmax v2 vs v3
+   (whether the rows survive in L2 between passes).
+4. **Fusion's benefit can be measured in bytes:** 22.05 → 18.12 B/element = 1.22×, matching the
+   1.21× speedup.
+5. **Benchmarks on shared cloud GPUs need repeats:** a 2.5× clock-throttling spread on one kernel.
+
+### 9.6 Next optimizations, chosen from these measurements
+
+| Kernel | Bottleneck (measured) | Next step |
+|---|---|---|
+| GEMM v4 | 2.13 waves (tail), 75% occupancy (72 registers) | tile sizes that give whole waves on 40 SMs; `__launch_bounds__(256, 4)` to cap registers |
+| GEMM v5 WMMA | LG Throttle 110 cycles/instruction | stage A/B tiles in shared memory and reuse fragments across warps |
+| softmax (long rows) | DRAM re-reads with warp-per-row | keep the row in registers (like LayerNorm v3) so x is read once |
+| fused attention | instruction issue | process tiles of queries × keys as small GEMMs (FlashAttention style, Tensor Cores) |
+| attention decode | 0.07 waves | split keys across blocks and merge (m, l, o) partials (flash-decoding) |
 
 ---
 

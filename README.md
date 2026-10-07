@@ -21,8 +21,13 @@ Start reading at [docs/01_project_overview.md](docs/01_project_overview.md).
 | 8 | Attention: unfused (batched GEMM + softmax) and fused (online softmax), causal mask, KV cache | ✅ implemented |
 | 9 | Benchmark framework: one-command run, CSV output, automatic summary, Colab notebook | ✅ implemented |
 | – | **First real run: Tesla T4, CUDA 13.0 — all 6 test programs pass; results in [docs/12_results.md](docs/12_results.md)** | ✅ measured |
-| 10 | Nsight profiling toolkit: `profile_targets`, resource usage, Nsight Systems timeline, Nsight Compute sections + metrics, Colab notebook, 13 testable hypotheses | ✅ implemented (awaiting profiler reports) |
-| 11 | Optimization write-up, interview prep, resume bullets | ⏳ |
+| 10 | Nsight profiling: resource usage, Nsight Systems timeline, Nsight Compute on every kernel; 13 hypotheses checked against counters ([docs/10 §9](docs/10_nsight_profiling.md)) | ✅ measured (Tesla T4) |
+| 11 | [Optimization story](docs/11_optimization.md), [interview Q&A](docs/13_interview_questions.md), [resume bullets](docs/resume_bullets.md) | ✅ |
+
+**Reading order:** [01 overview](docs/01_project_overview.md) → 02–08 (one topic per phase) →
+[09 benchmarking](docs/09_benchmarking.md) → [10 profiling](docs/10_nsight_profiling.md) →
+[11 optimization story](docs/11_optimization.md) → [12 results](docs/12_results.md) →
+[13 interview questions](docs/13_interview_questions.md).
 
 **Headline results (Tesla T4, FP32 unless noted, all measured):**
 - **GEMM 1024³:** 61 → 2,236 GFLOP/s across four versions (**36.5×**); the final version is **60% of cuBLAS**.

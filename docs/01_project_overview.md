@@ -78,6 +78,13 @@ Inference performance  latency per token, tokens per second, cost per request
 
 ---
 
+Why inference performance depends on memory movement, compute, launch overhead, parallelism,
+precision, cache, occupancy and bandwidth, with a **measured** example of each from this
+project: [11_optimization.md §5](11_optimization.md). Final measured results (Tesla T4):
+[12_results.md](12_results.md).
+
+---
+
 ## 3. Directory structure
 
 ```
