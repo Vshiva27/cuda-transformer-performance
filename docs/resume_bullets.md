@@ -1,7 +1,7 @@
 # Resume Bullets
 
 Every number below was measured on an NVIDIA Tesla T4 (CUDA 13.0) and traces to
-`benchmarks/Tesla_T4/` or `profiling/reports/`. Before using a bullet, make sure you can answer
+`benchmarks/Tesla_T4/` or `profiling/reports/Tesla_T4/`. Before using a bullet, make sure you can answer
 the "defend it" questions without notes. An interviewer will pick one number and dig.
 
 **Project line:**

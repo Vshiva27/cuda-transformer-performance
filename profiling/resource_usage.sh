@@ -8,7 +8,11 @@
 # =============================================================================
 set -euo pipefail
 cd "$(dirname "$0")/.."
-mkdir -p profiling/reports
+# One folder per GPU, like benchmarks/ (e.g. profiling/reports/Tesla_T4), so runs on
+# different GPUs never overwrite each other.
+GPU_TAG=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n 1 | sed "s/[^A-Za-z0-9]/_/g")
+OUT="profiling/reports/${GPU_TAG:-unknown_GPU}"
+mkdir -p "$OUT"
 
 LIB=build/libctp_core.a
 if [ ! -f "$LIB" ]; then
@@ -18,6 +22,6 @@ fi
 
 # cuobjdump prints one line per kernel:  Function <mangled name>:  REG:.. STACK:.. SHARED:.. LOCAL:..
 # c++filt turns mangled C++ names (_Z...) back into readable ones.
-cuobjdump --dump-resource-usage "$LIB" | c++filt | tee profiling/reports/resource_usage.txt
+cuobjdump --dump-resource-usage "$LIB" | c++filt | tee "$OUT/resource_usage.txt"
 echo
-echo "Saved to profiling/reports/resource_usage.txt"
+echo "Saved to $OUT/resource_usage.txt"

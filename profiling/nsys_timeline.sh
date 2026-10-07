@@ -5,13 +5,17 @@
 #
 #   bash profiling/nsys_timeline.sh [case]      (default: all)
 #
-# Output (profiling/reports/):
+# Output (profiling/reports/<GPU>/):
 #   timeline_<case>.nsys-rep        open in the Nsight Systems GUI on your PC
 #   timeline_<case>_stats.txt       text tables: kernel times, API times, NVTX ranges
 # =============================================================================
 set -euo pipefail
 cd "$(dirname "$0")/.."
-mkdir -p profiling/reports
+# One folder per GPU, like benchmarks/ (e.g. profiling/reports/Tesla_T4), so runs on
+# different GPUs never overwrite each other.
+GPU_TAG=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n 1 | sed "s/[^A-Za-z0-9]/_/g")
+OUT="profiling/reports/${GPU_TAG:-unknown_GPU}"
+mkdir -p "$OUT"
 CASE="${1:-all}"
 
 if ! command -v nsys > /dev/null; then
@@ -22,7 +26,7 @@ fi
 # --trace=cuda,nvtx : record CUDA runtime calls, kernels, memcpys, and our NVTX ranges
 # --reps 5          : each target 5 times, so the first-launch cost is visible separately
 nsys profile --trace=cuda,nvtx --force-overwrite=true \
-     -o "profiling/reports/timeline_${CASE}" \
+     -o "$OUT/timeline_${CASE}" \
      ./build/profile_targets "$CASE" --reps 5
 
 # Summary tables from the report:
@@ -30,4 +34,4 @@ nsys profile --trace=cuda,nvtx --force-overwrite=true \
 #   cuda_api_sum      : per CUDA API call -- how much CPU time launches/syncs/mallocs take
 #   nvtx_sum          : per NVTX range (our labels) -- wall time
 nsys stats --report cuda_gpu_kern_sum --report cuda_api_sum --report nvtx_sum \
-     "profiling/reports/timeline_${CASE}.nsys-rep" | tee "profiling/reports/timeline_${CASE}_stats.txt"
+     "$OUT/timeline_${CASE}.nsys-rep" | tee "$OUT/timeline_${CASE}_stats.txt"

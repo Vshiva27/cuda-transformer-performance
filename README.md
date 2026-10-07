@@ -199,7 +199,7 @@ match the data.
 | WMMA kernel is starved, not slow | issue slots 5.5% busy; 110 of 124 cycles/instruction waiting on global loads |
 
 Full tables and all 13 hypotheses: [docs/10 §9](docs/10_nsight_profiling.md) ·
-raw reports: [profiling/reports/](profiling/reports/)
+raw reports: [profiling/reports/Tesla_T4/](profiling/reports/Tesla_T4/)
 
 <details>
 <summary><b>More measured results</b></summary>
@@ -240,6 +240,11 @@ ctest --test-dir build --output-on-failure        # correctness first
 python3 python/benchmark.py --ops matmul softmax  # PyTorch baseline
 bash profiling/ncu_kernels.sh gemm                # Nsight Compute on one case
 ```
+
+**Other GPUs (A100, H100, …):** no code changes needed. The GPU is detected at run time, and
+results go to `benchmarks/<GPU>/` and `profiling/reports/<GPU>/`, so runs never overwrite each
+other. Before interpreting results, read the caveats (MIG slices, larger L2 caches, features our
+kernels don't use): [docs/09 §21](docs/09_benchmarking.md).
 
 **Requirements:** an NVIDIA GPU (detected at runtime; Tensor Core tests need compute
 capability ≥ 7.0), CUDA Toolkit 11+, CMake ≥ 3.18, a C++17 compiler; PyTorch for the baseline

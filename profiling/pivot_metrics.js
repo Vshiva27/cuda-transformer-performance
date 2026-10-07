@@ -1,5 +1,5 @@
 // pivot_metrics.js — turn an ncu --csv metrics file into one row per kernel.
-// Usage: node profiling/pivot_metrics.js profiling/reports/ncu_gemm_metrics.csv
+// Usage: node profiling/pivot_metrics.js profiling/reports/Tesla_T4/ncu_gemm_metrics.csv
 // Pivot ncu --csv metric rows into one line per kernel launch.
 const fs = require('fs');
 function parseLine(l) { const out = []; let cur = '', q = false;

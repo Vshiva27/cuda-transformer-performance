@@ -6,6 +6,11 @@
 > marked † and explained. Where a measurement contradicted a prediction in the earlier docs,
 > that is stated too.
 
+> **Other GPUs:** this page covers the Tesla T4. Results from other GPUs (e.g. A100, H100) go into
+> their own `benchmarks/<GPU>/` and `profiling/reports/<GPU>/` folders and get their own section
+> here, with the same tables. Compare GPUs in % of peak, never within one table. Caveats:
+> [09 §21](09_benchmarking.md).
+
 ## Environment
 
 | Field | Value |

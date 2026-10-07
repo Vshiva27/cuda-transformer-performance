@@ -409,3 +409,71 @@ collects keyword arguments into a dictionary: `find(rows, impl="v1 naive", shape
 4. CRLF line endings in shell scripts.
 5. Changing a shape label in one benchmark but not the other, which silently breaks the
    C++ ↔ PyTorch matching in the summary (it shows n/a, not a wrong number).
+
+---
+
+## 21. Running on other GPUs (A100, H100)
+
+The project needs no code changes for another NVIDIA GPU:
+- It detects the GPU at run time (SM count, memory, peak bandwidth, FP32 cores per SM).
+- It compiles for the GPU it finds (`CMAKE_CUDA_ARCHITECTURES native`; the fallback list
+  includes `80` = A100 and `90` = H100).
+- It writes every result into folders named after the GPU.
+
+### Workflow
+
+```bash
+bash scripts/run_all.sh                     # → benchmarks/<GPU>/
+bash profiling/resource_usage.sh            # → profiling/reports/<GPU>/
+bash profiling/nsys_timeline.sh all
+bash profiling/ncu_kernels.sh gemm          # (and the other cases)
+node assets/make_charts.js benchmarks/<GPU> profiling/reports/<GPU> assets/<GPU>
+```
+
+`<GPU>` is the name from `nvidia-smi` with special characters replaced by `_`, e.g.
+`NVIDIA_A100-SXM4-40GB`. The chart script reads that GPU's name and peak bandwidth from its
+own results, and scales every axis to the data. Results from different GPUs never overwrite
+each other.
+
+On Colab, A100 (and, depending on availability, H100) runtimes are offered on paid tiers.
+Otherwise, rent an hourly cloud GPU. A full benchmark run takes minutes.
+
+### Reference specs, and what changes
+
+NVIDIA's published, approximate values. The benchmarks use the values the device reports at
+run time.
+
+| | Tesla T4 | A100 (SXM4, 40 GB) | H100 (SXM5) |
+|---|---|---|---|
+| Compute capability | 7.5 | 8.0 | 9.0 |
+| SMs | 40 | 108 | 132 |
+| Peak memory bandwidth | ~320 GB/s | ~1,555 GB/s (80 GB model: ~2,039) | ~3,350 GB/s |
+| Peak FP32 (CUDA cores) | ~8.1 TFLOP/s | ~19.5 TFLOP/s | ~67 TFLOP/s |
+| L2 cache | 4 MB | 40 MB | 50 MB |
+| Shared memory per SM | 64 KB | up to 164 KB | up to 228 KB |
+
+(The PCIe version of the H100 has fewer SMs and less bandwidth than the SXM5 version. Always
+check the device query output.)
+
+### Things to watch for (they will affect the results)
+
+1. **Shared or partitioned GPUs.** Cloud A100/H100s are sometimes split with **MIG**
+   (Multi-Instance GPU) into slices with a fraction of the SMs and memory. Check the `SMs` line
+   of the device query (e.g. 14 instead of 108) before interpreting anything.
+2. **Bigger L2 = more cache-resident shapes.** With 40–50 MB of L2, inputs that went to DRAM on
+   the T4 (4 MB L2) may now stay in cache, and "bandwidth" can exceed the DRAM peak (like the
+   rows marked * in 12_results). Use the largest shapes (vector add 2²⁶, LayerNorm 8192 × 4096)
+   for DRAM-bandwidth claims.
+3. **Problem size vs GPU size.** An H100 needs far more parallel work to fill 132 SMs. That's
+   why GEMM benchmarks now include 4096³ (v1 is skipped there). Small shapes will look worse in
+   % of peak, as GEMM v4 did at n = 128 on the T4.
+4. **Hardware features our kernels don't use.** A100: TF32/BF16 Tensor Cores, `cp.async`. H100:
+   TMA, `wgmma`, FP8, thread-block clusters. cuBLAS uses them, so expect the gap between our
+   kernels (especially the WMMA GEMM) and cuBLAS to be *larger* on newer GPUs. That's a finding
+   to explain, not a failure.
+5. **TF32.** On compute capability ≥ 8.0 PyTorch can use TF32 for FP32 matmul. The baseline keeps
+   it off and measures it separately (the TF32 experiment runs automatically on A100/H100).
+6. **Compare across GPUs in % of peak**, not raw milliseconds, and never mix GPUs within one
+   table.
+7. **Profiler access.** Some cloud providers block GPU performance counters (`ERR_NVGPUCTRPERM`);
+   then only Nsight Systems and `resource_usage.sh` work.

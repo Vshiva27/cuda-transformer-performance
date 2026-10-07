@@ -118,9 +118,9 @@ Also compare REG of `layernorm_block_kernel<1024,16>` with `<256,4>`.
 **Command:**
 
 ```bash
-nsys profile --trace=cuda,nvtx --force-overwrite=true -o profiling/reports/timeline_all \
+nsys profile --trace=cuda,nvtx --force-overwrite=true -o profiling/reports/<GPU>/timeline_all \
      ./build/profile_targets all --reps 5
-nsys stats --report cuda_gpu_kern_sum --report cuda_api_sum --report nvtx_sum profiling/reports/timeline_all.nsys-rep
+nsys stats --report cuda_gpu_kern_sum --report cuda_api_sum --report nvtx_sum profiling/reports/<GPU>/timeline_all.nsys-rep
 ```
 
 - `--trace=cuda,nvtx`: record every CUDA runtime call on the CPU side, every kernel and copy on
@@ -170,8 +170,8 @@ GPU kernels                      └─[vector_add]─┐  [layernorm_block]─�
 ncu --section SpeedOfLight --section LaunchStats --section Occupancy \
     --section MemoryWorkloadAnalysis --section MemoryWorkloadAnalysis_Tables \
     --section ComputeWorkloadAnalysis --section WarpStateStats --section SchedulerStats \
-    --section SourceCounters -o profiling/reports/ncu_gemm ./build/profile_targets gemm
-ncu --import profiling/reports/ncu_gemm.ncu-rep --page details > profiling/reports/ncu_gemm_details.txt
+    --section SourceCounters -o profiling/reports/<GPU>/ncu_gemm ./build/profile_targets gemm
+ncu --import profiling/reports/<GPU>/ncu_gemm.ncu-rep --page details > profiling/reports/<GPU>/ncu_gemm_details.txt
 ```
 
 `profile_targets` prints a numbered list ("kernel 3: gemm v2 coalesced (block 32x1)").
@@ -376,7 +376,7 @@ Each hypothesis is a **prediction**. §9 records whether it held.
 
 ## 9. Measured results (Tesla T4, Nsight Compute 2025.3.1, CUDA 13.0)
 
-Source: [`profiling/reports/`](../profiling/reports/), i.e. `resource_usage.txt`,
+Source: [`profiling/reports/Tesla_T4/`](../profiling/reports/Tesla_T4/), i.e. `resource_usage.txt`,
 `timeline_all_stats.txt`, `ncu_<case>_details.txt` and `ncu_<case>_metrics.csv`. The CSV
 tables can be pivoted to one row per kernel with `node profiling/pivot_metrics.js <csv>`.
 Nsight Compute ran at the locked base clock (**585 MHz**, `sm__cycles_elapsed.avg.per_second`)
@@ -522,6 +522,6 @@ ranges (`nvtxRangePushA`/`nvtxRangePop`), optional at build time via `CTP_HAVE_N
 profiling it with `--reps > 1` under ncu (multiplies the replay time).
 
 ### `profiling/*.sh`, `notebooks/colab_profile.ipynb`
-§3–§5. All scripts stop on errors (`set -euo pipefail`) and write into `profiling/reports/`.
+§3–§5. All scripts stop on errors (`set -euo pipefail`) and write into `profiling/reports/<GPU>/`, one folder per GPU (like `benchmarks/<GPU>/`).
 The binary `.ncu-rep`/`.nsys-rep` reports are excluded from git (`.gitignore`); their text and
 CSV exports are kept.
