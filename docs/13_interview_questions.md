@@ -251,7 +251,7 @@ had half the stall cycles per instruction.
 **How did Nsight Compute help?**
 It confirmed or refuted 13 written hypotheses. It confirmed the coalescing math exactly (16.5 →
 2.5 sectors/request), 0 bank conflicts in the tiled kernels, and no spills. It explained the
-fusion speedup by DRAM bytes (22.05 → 18.12 per element ≈ 1.21×). It overturned my guesses: 32×1
+fusion speedup by DRAM bytes (22.07 → 18.11 per element ≈ 1.21×). It overturned my guesses: 32×1
 blocks won through less DRAM traffic, not a better L1 hit rate (which was worse); softmax
 warp-per-row lost because it re-read 2.77× its input from DRAM; fused attention was
 instruction-bound, not starved. It also showed the WMMA kernel issuing an instruction in only

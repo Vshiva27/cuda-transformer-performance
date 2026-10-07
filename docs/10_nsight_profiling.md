@@ -426,8 +426,8 @@ Selected values:
 | H6 | WMMA: Tensor Cores starved, memory stalls | Issue slots busy **5.5%**, **124 cycles per instruction**, of which **110.6 in LG Throttle**. SM throughput 17%. "50% excessive sectors" (16-element half rows = 32-byte pieces) | ✔ Tensor Cores idle waiting for global loads |
 | H7 | softmax 16384×1024: v2 higher DRAM throughput than v3; v3 more Long Scoreboard | v3 waits on memory (Long Scoreboard 32.7 cycles/instruction) ✔. But **v3 has the higher DRAM throughput (86.5% vs 49.7%)** because it **reads x 2.77× from DRAM** (186 MB for a 67 MB input) vs v2's **1.22×** (81.7 MB). With one warp per row, ~32 rows × 4 KB per SM are in flight across 40 SMs (≈ 5 MB), more than the 4 MB L2, so rows are evicted between the 3 passes. v2 keeps few rows in flight, so passes 2–3 hit L1/L2 (L1 hit 41%) | ✘ / ✔ (the mechanism is **re-reading from DRAM**, not DRAM throughput). At base clock both take ~1.0 ms; at boost, v2's lower traffic wins (1.8× in the benchmark) |
 | H8 | softmax v4: higher special-function (XU) use than v3 | XU never appears as the busiest pipe. v4 issues more instructions (issue slots 29.1% vs 19.4%), and **reads as much DRAM as v3** (199 vs 186 MB): its saved pass didn't save DRAM traffic | ~ (XU share not visible in the text export; the "no DRAM saving" part explains 12_results §4) |
-| H9 | LayerNorm v3 ≈ 8 B/element; v2 more | v3: 148 MB read + 150 MB written = **8.88 B/element** (ideal 8). v2: **19.8 B/element** (re-reads), stalled 98.7 cycles/instruction on memory, issue slots 6.9% | ✔ |
-| H10 | fusion: unfused ≈ 20, fused ≈ 16 B/element | Unfused (vector_add + v3): **740 MB = 22.05 B/element**. Fused: **608 MB = 18.12 B/element**. Ratio **1.22**: the benchmark speedup was 1.21× | ✔ **The fusion speedup is fully explained by DRAM bytes** (both ~10% above the ideal counts, from write overhead) |
+| H9 | LayerNorm v3 ≈ 8 B/element; v2 more | v3: 148 MB read + 150 MB written = **8.90 B/element** (ideal 8). v2: **19.8 B/element** (re-reads), stalled 98.7 cycles/instruction on memory, issue slots 6.9% | ✔ |
+| H10 | fusion: unfused ≈ 20, fused ≈ 16 B/element | Unfused (vector_add + v3): **740 MB = 22.07 B/element**. Fused: **608 MB = 18.11 B/element**. Ratio **1.22**: the benchmark speedup was 1.21× | ✔ **The fusion speedup is fully explained by DRAM bytes** (both ~10% above the ideal counts, from write overhead) |
 | H11 | batched GEMM with `Bs[32][33]`: 0 store conflicts | **0** load and **0** store bank conflicts for the transposed (QKᵀ) variant | ✔ the padding works |
 | H12 | fused attention: low FMA use, shared/shuffle stalls | **FMA is the busiest pipe at 60.3%**, issue slots **59.7%** busy, 12.8 cycles/instruction, DRAM 0.4% | ✘ as stated: the kernel is **instruction-issue-bound** (busy, not starved). It executes many more instructions per useful FLOP than the GEMMs (per-key dot products + shuffles + rescaling, one key at a time). Same conclusion as 07 §6: it needs GEMM-style tiles / Tensor Cores |
 | H13 | decode (q_len = 1): few waves, latency-bound | **0.07 waves** (12 blocks for 40 SMs), achieved occupancy **25%**, SM 3.3%, DRAM 4.9%. Dominant stall: **Barrier** (14.0 cycles): the 7 inactive warps of each block wait at `__syncthreads()` while one warp works | ✔ the GPU is almost empty; split the keys across blocks (flash-decoding) |
@@ -452,7 +452,7 @@ bottleneck is instruction issue (H12).
    fastest FP32 kernel.
 3. **Cache capacity explains two "surprises":** v2 32×1 (less DRAM traffic) and softmax v2 vs v3
    (whether the rows survive in L2 between passes).
-4. **Fusion's benefit can be measured in bytes:** 22.05 → 18.12 B/element = 1.22×, matching the
+4. **Fusion's benefit can be measured in bytes:** 22.07 → 18.11 B/element = 1.22×, matching the
    1.21× speedup.
 5. **Benchmarks on shared cloud GPUs need repeats:** a 2.5× clock-throttling spread on one kernel.
 

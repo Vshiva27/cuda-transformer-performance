@@ -336,5 +336,5 @@ Details and all metric values: [10_nsight_profiling.md §9](10_nsight_profiling.
    throttling, which the timeline shows directly: one kernel varied 36.8–92.5 ms across 5
    launches.
 
-**Bonus confirmation:** DRAM byte counters show fusion moves **22.05 → 18.12 bytes per element**,
+**Bonus confirmation:** DRAM byte counters show fusion moves **22.07 → 18.11 bytes per element**,
 a ratio of 1.22, matching the measured 1.21× fusion speedup.

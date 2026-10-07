@@ -52,8 +52,8 @@ libraries choose a kernel per shape.
 | softmax v2 (block/row) | – | reads x **1.22×** from DRAM (passes 2–3 hit cache) | block-stride loop + shared-memory tree | **243.2 GB/s at 12288×1024 (76% of peak), 12% faster than PyTorch** |
 | softmax v3 (warp/row) | for long rows: **re-reads x from DRAM** | 186 MB read for a 67 MB input (**2.77×**): ~5 MB of rows in flight > 4 MB L2 | (none needed for short rows) | wins for ≤ 256 columns (227 vs 107 GB/s); loses 1.8× at 1,024 columns |
 | softmax v4 (online) | more work per element, same DRAM traffic | 199 MB DRAM (no saving); more instructions issued | – | **not faster than v3**: a negative result (§7) |
-| LayerNorm v1 → v3 | v2 re-reads x 3 times (19.8 B/element) | DRAM counters | keep the row in **registers**, read x once; hierarchical block reduction (2 barriers) | **8.88 B/element** (ideal 8); 230.1 GB/s at 8192×4096 (72% of peak), **1.38× PyTorch** |
-| add + LayerNorm, fused | intermediate h written then read back | unfused **22.05 B/element** (740 MB) | compute h in registers, write it once | **18.12 B/element** (608 MB) → ratio 1.22; **measured 1.21×**; **1.5× PyTorch eager** |
+| LayerNorm v1 → v3 | v2 re-reads x 3 times (19.8 B/element) | DRAM counters | keep the row in **registers**, read x once; hierarchical block reduction (2 barriers) | **8.90 B/element** (ideal 8); 230.1 GB/s at 8192×4096 (72% of peak), **1.38× PyTorch** |
+| add + LayerNorm, fused | intermediate h written then read back | unfused **22.07 B/element** (740 MB) | compute h in registers, write it once | **18.11 B/element** (608 MB) → ratio 1.22; **measured 1.21×**; **1.5× PyTorch eager** |
 
 ---
 
@@ -71,7 +71,7 @@ libraries choose a kernel per shape.
 
 | Factor | What we measured | Inference consequence |
 |---|---|---|
-| **Memory movement** | Fusion: 22.05 → 18.12 bytes/element gave 1.21×. LayerNorm v3 vs v2: 8.88 vs 19.8 bytes/element | Memory-bound ops (norms, softmax, residuals, decode) speed up only by moving fewer bytes: fusion, read-once kernels, lower precision |
+| **Memory movement** | Fusion: 22.07 → 18.11 bytes/element gave 1.21×. LayerNorm v3 vs v2: 8.90 vs 19.8 bytes/element | Memory-bound ops (norms, softmax, residuals, decode) speed up only by moving fewer bytes: fusion, read-once kernels, lower precision |
 | **Compute** | GEMM 61 → 2,236 GFLOP/s through reuse; Tensor Cores 1.49× (ours) and cuBLAS FP16 at 35.9 TFLOP/s vs 3.7 FP32 | Prefill is dominated by GEMMs; Tensor Cores + FP16/BF16 are the main lever |
 | **Kernel launch overhead** | vector add: a 2.7 µs floor regardless of size; `cudaLaunchKernel` median 15.9 µs in the profiled program; PyTorch small ops: GPU time ≈ wall time (launch-bound) | Decode runs hundreds of tiny kernels per token. Fusion and CUDA Graphs cut launches |
 | **Parallelism** | decode attention: 0.07 waves, 3% SM throughput; softmax of one 50,257-wide row: 7.2 GB/s; GEMM v4 at n = 128: 2.8× slower than v2 | Batch size 1 decoding leaves the GPU mostly idle. Batching requests and split-K/flash-decoding create parallelism |
