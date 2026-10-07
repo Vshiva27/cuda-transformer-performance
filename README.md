@@ -87,13 +87,113 @@ Every optimization follows the same loop: **measure → form a hypothesis → ch
 hardware counters → change one thing → re-measure.** The profiler overturned the hypothesis
 three times. Those cases are documented too: [docs/11 §7](docs/11_optimization.md).
 
+## Results
+
+### Memory-bound kernels reach 72–82% of peak bandwidth
+
+Softmax, LayerNorm and residual adds do little math per byte, so their ceiling is DRAM
+bandwidth. Reading the input once (LayerNorm keeps each row in registers) and picking the right
+work split (one block per long row) gets within reach of the hardware limit.
+
+<p align="center"><img src="assets/memory_bandwidth.svg" width="800" alt="Grouped bar chart of achieved DRAM bandwidth on a Tesla T4 against the 320 GB/s peak. Vector add: ours 262.7, PyTorch 246.4. Softmax 12288 by 1024: naive 31.8, ours 243.2, PyTorch 216.2. LayerNorm 8192 by 4096: naive 34.2, ours 230.1, PyTorch 166.2 GB/s."></p>
+
+<details>
+<summary>Data</summary>
+
+| Kernel | Naive | Ours, optimized | PyTorch | Peak |
+|---|---:|---:|---:|---:|
+| Vector add, 2²⁶ elements | – | 262.7 GB/s (82%) | 246.4 GB/s | 320.1 GB/s |
+| Softmax, 12288 × 1024 | 31.8 GB/s | 243.2 GB/s (76%) | 216.2 GB/s | 320.1 GB/s |
+| LayerNorm, 8192 × 4096 | 34.2 GB/s | 230.1 GB/s (72%) | 166.2 GB/s | 320.1 GB/s |
+
+</details>
+
+### Kernel fusion, verified in hardware counters
+
+Fusing the residual add into LayerNorm keeps the intermediate result in registers instead of
+writing it to DRAM and reading it back. Nsight Compute's DRAM counters show the saving directly,
+and it matches the measured speedup.
+
+<p align="center"><img src="assets/fusion_bytes.svg" width="800" alt="Bar chart of DRAM bytes per element for residual add plus LayerNorm at 8192 by 4096: unfused 22.07 (minimum 20), 2.64 ms; fused 18.11 (minimum 16), 2.19 ms, 1.21 times faster."></p>
+
+<details>
+<summary>Data</summary>
+
+| Pipeline | DRAM bytes / element | Algorithmic minimum | Time |
+|---|---:|---:|---:|
+| Unfused: vector add, then LayerNorm (2 kernels) | 22.07 | 20 | 2.64 ms |
+| Fused add + LayerNorm (1 kernel) | 18.11 | 16 | 2.19 ms (1.21× faster) |
+
+</details>
+
+### There is no single best softmax kernel
+
+With one warp per row, short rows are fast. For long rows, too many rows are in flight to stay
+in the 4 MB L2 cache, and the kernel re-reads its input from DRAM (2.77× the input size,
+measured with Nsight). One block per row wins from 1,024 columns upward.
+
+<p align="center"><img src="assets/softmax_row_length.svg" width="800" alt="Line chart of softmax bandwidth versus row length from 32 to 65,536 columns. Warp per row is fastest for 32 and 256 columns (about 220 GB/s); block per row is fastest from 1,024 columns (243.8 GB/s at 1K)."></p>
+
+<details>
+<summary>Data (GB/s, ~16M elements per point)</summary>
+
+| Columns per row | 32 | 256 | 1K | 4K | 16K | 64K |
+|---|---:|---:|---:|---:|---:|---:|
+| Block per row | 15.2 | 106.5 | **243.8** | **202.4** | **122.5** | **112.4** |
+| Warp per row | **218.0** | **227.1** | 138.2 | 108.1 | 105.3 | 83.1 |
+
+</details>
+
+### FP16 storage, FP32 accumulation
+
+FP16 halves the bytes and unlocks Tensor Cores (our WMMA GEMM: 1.49× over the best FP32 kernel).
+But the running sum must stay in FP32: with an FP16 accumulator the error grows with K, and large
+sums overflow to infinity.
+
+<p align="center"><img src="assets/precision_error.svg" width="800" alt="Log-scale line chart of GEMM error versus K from 64 to 16,384. FP16 accumulator error rises from 2.3e-3 to 3.6e-2; FP32 accumulator error from 3.4e-7 to 4.4e-6, about 8,300 times less at K = 16,384."></p>
+
+<details>
+<summary>Data (max error / max |exact|, FP16-rounded inputs)</summary>
+
+| K | 64 | 256 | 1,024 | 4,096 | 16,384 |
+|---|---:|---:|---:|---:|---:|
+| FP32 accumulator | 3.44e-7 | 5.82e-7 | 1.27e-6 | 2.36e-6 | 4.35e-6 |
+| FP16 accumulator | 2.34e-3 | 3.59e-3 | 7.63e-3 | 1.58e-2 | 3.62e-2 |
+
+Overflow test (inputs in [0, 8], K = 8,192): FP16 accumulator produced inf in 256 of 256 outputs;
+FP32 accumulation, none.
+
+</details>
+
+### KV cache: why LLM decoding stores past keys and values
+
+Generating one token with a KV cache means one query against the cached keys. Without the cache,
+attention is recomputed for every token, and the gap grows with context length.
+
+<p align="center"><img src="assets/kv_cache.svg" width="800" alt="Log-scale line chart of attention time for one decoding step versus context length. With KV cache: 0.031 to 0.503 ms; recomputing all tokens: 0.077 to 15.09 ms, 30 times more at 2,048 tokens."></p>
+
+<details>
+<summary>Data (ms, fused attention kernel, 12 heads, d = 64)</summary>
+
+| Context (tokens) | 128 | 512 | 1,024 | 2,048 |
+|---|---:|---:|---:|---:|
+| With KV cache (1 query) | 0.031 | 0.106 | 0.259 | 0.503 |
+| Recompute all tokens | 0.077 | 0.729 | 3.477 | 15.093 |
+| Ratio | 2.5× | 6.9× | 13.4× | **30.0×** |
+
+</details>
+
+All charts are generated from the measured CSV files by
+[`assets/make_charts.js`](assets/make_charts.js) (`node assets/make_charts.js`), so they always
+match the data.
+
 ## Profiler-verified results
 
 | Claim | Evidence (Nsight Compute, T4) |
 |---|---|
 | Coalescing fixed GEMM v1 | global-load sectors/request **16.5 → 2.5 → 4.0** (ideal 4); DRAM reads **433 → 33 MB** |
 | Register tiling broke the shared-memory bottleneck | stall reason MIO Throttle → none dominant; cycles/instruction **37.9 → 12.95** |
-| Fusion speedup = fewer bytes | **22.05 → 18.12 B/element**, ratio 1.22 vs measured 1.21× |
+| Fusion speedup = fewer bytes | **22.07 → 18.11 B/element**, ratio 1.22 vs measured 1.21× |
 | No spills, no bank conflicts in the tiled kernels | `LOCAL:0` for all kernels; 0 shared-memory conflicts in GEMM v3/v4 and padded attention GEMM |
 | v4 at 60% of cuBLAS | tail effect (2.13 waves), 72 registers → 75% occupancy, 0.86 eligible warps/scheduler |
 | WMMA kernel is starved, not slow | issue slots 5.5% busy; 110 of 124 cycles/instruction waiting on global loads |
@@ -159,6 +259,7 @@ scripts/        run_all.sh: build → test → benchmark → summary
 profiling/      Nsight scripts and reports
 notebooks/      Colab notebooks
 benchmarks/     measured results, one folder per GPU
+assets/         README charts, generated from the results by make_charts.js
 docs/           the learning guide (below)
 ```
 
