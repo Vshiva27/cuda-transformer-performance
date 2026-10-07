@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
     // ------------------------------------------------------------------------
     std::printf("Experiment A: square GEMM speed (A, B in the stated precision; C in FP32)\n");
     std::printf("(each variant is verified against an exact double-precision product first, n <= 1024)\n");
-    for (int n : {256, 512, 1024, 2048}) {
+    for (int n : {256, 512, 1024, 2048, 4096}) {  // 4096 fills large GPUs (A100/H100)
         MixedProblem p(n, n, n);
         std::vector<double> exact, exact16;
         if (n <= 1024) {

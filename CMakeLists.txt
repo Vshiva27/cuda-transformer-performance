@@ -10,13 +10,13 @@ cmake_minimum_required(VERSION 3.18)
 # language and picks its own default if we have not chosen one.
 #   "native" = "whatever GPU is in this machine right now" (needs CMake >= 3.24).
 #   Otherwise we fall back to a list of common GPUs:
-#   75 = T4 (Colab free tier), 80 = A100, 86 = RTX 30xx / A10, 89 = L4 / RTX 40xx.
+#   75 = T4 (Colab free tier), 80 = A100, 86 = RTX 30xx / A10, 89 = L4 / RTX 40xx, 90 = H100.
 # You can always override it:  cmake -S . -B build -DCMAKE_CUDA_ARCHITECTURES=75
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.24)
     set(CMAKE_CUDA_ARCHITECTURES native)
   else()
-    set(CMAKE_CUDA_ARCHITECTURES 75 80 86 89)
+    set(CMAKE_CUDA_ARCHITECTURES 75 80 86 89 90)
   endif()
 endif()
 

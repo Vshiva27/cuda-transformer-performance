@@ -31,7 +31,7 @@ import pytorch_baseline as pb
 # Shapes — keep in sync with the C++ benchmarks.
 # -----------------------------------------------------------------------------
 VECTOR_SIZES = [2**10, 2**14, 2**18, 2**20, 2**22, 2**24, 2**26]
-MATMUL_SQUARE = [32, 64, 128, 256, 512, 1024, 2048]
+MATMUL_SQUARE = [32, 64, 128, 256, 512, 1024, 2048, 4096]  # 4096 fills large GPUs (A100/H100)
 MATMUL_TRANSFORMER = [  # GPT-2 small: hidden 768, MLP 3072; M = tokens
     ("QKV proj, prefill 512", 512, 3 * 768, 768),
     ("MLP up, prefill 512", 512, 3072, 768),

@@ -85,15 +85,19 @@ int main(int argc, char** argv) {
     // Experiment A: square matrices, every version
     // ------------------------------------------------------------------------
     std::printf("Experiment A: square GEMM, n x n x n, FP32, default configuration of each version\n");
-    std::printf("(CPU skipped above n = 1024; there the verified v1 result is the reference)\n");
+    std::printf("(CPU skipped above n = 1024; there the verified v1 result is the reference.\n");
+    std::printf(" v1 skipped above n = 2048, where it takes seconds per launch; there v2 is the\n");
+    std::printf(" reference: it adds the products in exactly the same order as v1.\n");
+    std::printf(" n = 4096 is included so that large GPUs such as A100/H100 are filled.)\n");
 
-    for (int n : {32, 64, 128, 256, 512, 1024, 2048}) {
+    for (int n : {32, 64, 128, 256, 512, 1024, 2048, 4096}) {
         if (3ull * n * n * sizeof(float) > info.free_mem_bytes / 2) {
             std::printf("\nn = %d skipped: not enough GPU memory\n", n);
             continue;
         }
         GemmProblem p(n, n, n);
         const int iters = iters_for(2.0 * n * n * n);
+        const bool skip_v1 = n > 2048;
 
         std::vector<float> ref(p.h_C.size());
         double cpu_ms = -1.0;
@@ -101,7 +105,7 @@ int main(int argc, char** argv) {
             cpu_ms = time_cpu_ms([&] { cpu::matmul(p.h_A.data(), p.h_B.data(), ref.data(), n, n, n); }, 0,
                                  n <= 256 ? 5 : 1);
         } else {
-            p.run(versions[0].launch);
+            p.run(versions[skip_v1 ? 1 : 0].launch);
             ref = p.download();
         }
 
@@ -116,18 +120,26 @@ int main(int argc, char** argv) {
                     "vs prev", "vs v1", "vs CPU");
 
         double v1_ms = 0.0, prev_ms = 0.0;
-        for (const gpu::GemmVersion& v : versions) {
+        for (size_t vi = 0; vi < versions.size(); ++vi) {
+            const gpu::GemmVersion& v = versions[vi];
+            if (vi == 0 && skip_v1) {
+                std::printf("  %-18s | skipped (too slow at this size)\n", v.name);
+                continue;
+            }
             p.run(v.launch);
             verify(v.name, ref, p.download(), n);
 
             float ms = time_gpu_ms([&] { p.run(v.launch); }, 2, iters);
-            if (v1_ms == 0.0) v1_ms = ms;
+            if (vi == 0) v1_ms = ms;
             double g = gflops(n, n, n, ms);
             char vs_cpu[32] = "-";
+            char vs_prev[32] = "-";
+            char vs_v1[32] = "-";
             if (cpu_ms >= 0) std::snprintf(vs_cpu, sizeof(vs_cpu), "%.1fx", cpu_ms / ms);
-            std::printf("  %-18s | %10.4f | %10.1f | %6.1f%% | %7.2fx | %7.2fx | %9s\n", v.name, ms, g,
-                        peak > 0 ? 100.0 * g / peak : 0.0, prev_ms > 0 ? prev_ms / ms : 1.0, v1_ms / ms,
-                        vs_cpu);
+            if (prev_ms > 0) std::snprintf(vs_prev, sizeof(vs_prev), "%.2fx", prev_ms / ms);
+            if (v1_ms > 0) std::snprintf(vs_v1, sizeof(vs_v1), "%.2fx", v1_ms / ms);
+            std::printf("  %-18s | %10.4f | %10.1f | %6.1f%% | %8s | %8s | %9s\n", v.name, ms, g,
+                        peak > 0 ? 100.0 * g / peak : 0.0, vs_prev, vs_v1, vs_cpu);
             log.add("A square", v.name, shape, "fp32", ms, g);
             prev_ms = ms;
         }
