@@ -88,6 +88,21 @@ add_executable(bench_attention src/benchmark/bench_attention.cu)
 target_link_libraries(bench_attention PRIVATE ctp_core)
 
 # -----------------------------------------------------------------------------
+# Profiling driver (docs/10_nsight_profiling.md). NVTX ranges label each launch
+# on the Nsight Systems timeline; NVTX is header-only and ships with the CUDA
+# toolkit. If CMake cannot find it, the program still builds, without labels.
+# -----------------------------------------------------------------------------
+find_package(CUDAToolkit REQUIRED)
+add_executable(profile_targets src/benchmark/profile_targets.cu)
+target_link_libraries(profile_targets PRIVATE ctp_core)
+if(TARGET CUDA::nvtx3)
+  target_link_libraries(profile_targets PRIVATE CUDA::nvtx3)
+  target_compile_definitions(profile_targets PRIVATE CTP_HAVE_NVTX)
+else()
+  message(STATUS "NVTX3 not found: profile_targets will not label its launches")
+endif()
+
+# -----------------------------------------------------------------------------
 # Tests (prove correctness). Run all with:  ctest --test-dir build --output-on-failure
 # -----------------------------------------------------------------------------
 enable_testing()

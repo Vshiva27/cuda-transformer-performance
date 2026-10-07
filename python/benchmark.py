@@ -247,6 +247,16 @@ def bench_attention(info: dict) -> list:
             cpu_ms = pb.time_cpu(lambda: func(q_cpu, k_cpu, v_cpu), iters=2) if seq <= 1024 else None
             rows.append(make_row("attention", impl, shape, "fp32", timing, cpu_ms, flops=flops,
                                  mem_mb=pb.peak_extra_memory_mb(fn), err=err))
+
+        # FP16 SDPA: PyTorch's memory-saving fused attention kernels need FP16/BF16 inputs
+        # (in the measured T4 run, FP32 SDPA saved no memory). The error includes rounding
+        # Q, K, V to FP16.
+        q16, k16, v16 = q.half(), k.half(), v.half()
+        fn16 = lambda: pb.attention_sdpa(q16, k16, v16)
+        err16 = pb.max_abs_error(fn16(), reference) if reference is not None else None
+        timing16 = pb.time_cuda(fn16, iters=choose_iters(fn16))
+        rows.append(make_row("attention", "SDPA (fused) fp16", shape, "fp16", timing16, flops=flops,
+                             mem_mb=pb.peak_extra_memory_mb(fn16), err=err16))
     print_rows("attention softmax(QK^T/sqrt(d))V  (GFLOP/s counts the two matmuls; mem = extra GPU memory per call)",
                rows)
     return rows

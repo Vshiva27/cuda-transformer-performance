@@ -147,7 +147,7 @@ returns immediately with a tensor whose data will exist "soon"
 | softmax | `torch.softmax(x, -1)` | PyTorch's own softmax kernel (warp/block reductions) |
 | LayerNorm | `F.layer_norm` | PyTorch's own LayerNorm kernel |
 | attention (naive) | `QKᵀ`, softmax, `@V` | 2 cuBLAS batched GEMMs + 1 softmax kernel + 1 scaling kernel |
-| attention (fused) | `F.scaled_dot_product_attention` | FlashAttention / memory-efficient kernel (one kernel; never stores seq×seq) |
+| attention (SDPA) | `F.scaled_dot_product_attention` | a backend chosen by PyTorch: FlashAttention / memory-efficient kernel (never stores seq×seq) **or** a "math" fallback that does. Measured on T4 with FP32: no memory saving (12_results §6) |
 
 **Why cuBLAS is the reference ceiling for GEMM:** NVIDIA tunes it per GPU architecture using all
 the techniques in 04 §23. Our v4 being, say, 50% of cuBLAS would be a good result for a
@@ -175,8 +175,12 @@ Expected pattern (verify with your run):
 - vector add, softmax, LayerNorm: extra ≈ the output size.
 - **naive attention**: extra includes `scores` and `probs`, each heads × seq × seq floats.
   For 12 heads × 2048 × 2048 × 4 B ≈ 200 MB each. This grows with **seq²**.
-- **SDPA**: extra ≈ output + small buffers, because the fused kernel works on tiles of the score
-  matrix in shared memory and never writes the whole thing to global memory.
+- **SDPA**: *if* PyTorch selects a fused backend, extra ≈ output + small buffers, because the
+  kernel works on tiles of the score matrix and never writes the whole thing to global memory.
+  **Measured on a T4 with FP32 inputs, this did not happen:** SDPA allocated 438 MB at seq 2048,
+  more than the naive path (390 MB). The memory-saving backends evidently weren't used for FP32
+  on this GPU. `benchmark.py` therefore also measures SDPA with FP16 inputs. This is a good
+  example of why you measure instead of assuming what a library does.
 
 This memory difference is the main reason FlashAttention exists. We return to it in Phase 8.
 
@@ -197,7 +201,8 @@ This memory difference is the main reason FlashAttention exists. We return to it
 7. **Important variables:** `start`/`stop` (`torch.cuda.Event(enable_timing=True)`), `iters`,
    `before`/`peak`.
 8. **CUDA concepts:** events, synchronization, asynchronous launch, caching allocator.
-9. **Memory:** naive attention stores seq² intermediates; SDPA does not.
+9. **Memory:** naive attention stores seq² intermediates; SDPA avoids them only when a fused
+   backend is selected (not the case for FP32 on the measured T4).
 10. **Thread mapping:** hidden inside PyTorch/cuBLAS. That is exactly why it is only a baseline.
 11. **Synchronization:** `torch.cuda.synchronize()` after warm-up; `stop.synchronize()` before
     reading the time.
@@ -244,8 +249,10 @@ LayerNorm and attention C++ benchmarks (Phases 5, 6, 8) will use these exact sha
 > fusion and CUDA Graphs address in inference engines. For the PyTorch baseline I disable TF32
 > so FP32 means true FP32, use inference mode, use the same shapes as my CUDA benchmarks, and
 > check every result against a float64 reference. Memory comes from the caching allocator's
-> peak statistics, which is how I showed that naive attention allocates seq-squared
-> intermediates while the fused SDPA kernel doesn't."
+> peak statistics. That's how I measured that naive attention allocates seq-squared
+> intermediates, 390 MB at sequence length 2048, and also that PyTorch's SDPA with FP32 inputs
+> on a T4 did not avoid them. It allocated even more, so it clearly didn't pick a memory-saving
+> fused backend for that dtype. My own fused kernel needs no score buffer at all."
 
 ## 12. What to remember
 

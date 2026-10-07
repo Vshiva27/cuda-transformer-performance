@@ -43,6 +43,8 @@ echo "GPU: $GPU_NAME  ->  results in $OUT"
     cmake --version | head -n 1
     python3 -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda)" || true
     nvidia-smi --query-gpu=clocks.sm,clocks.max.sm,clocks.mem,temperature.gpu,power.draw --format=csv || true
+    echo "CPU (for the CPU baselines):"
+    lscpu | grep -E "Model name|^CPU\(s\)|Thread" || true
 } > "$OUT/environment.txt" 2>&1
 
 # ---- 2. Build -----------------------------------------------------------------------

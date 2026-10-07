@@ -486,6 +486,19 @@ end-to-end speedup; compare the CPU column with the end-to-end column for that.
 
 ---
 
+### Measured on a Tesla T4 (12_results §1)
+
+- ✔ Large vectors: **262.7 GB/s = 82% of the 320 GB/s theoretical peak**.
+- ✔ n = 1,024: 2.7 µs (the launch floor). The single-thread CPU is 10× faster at this size.
+- ✔ End-to-end with PCIe copies at n = 2²⁶: 173.7 ms, **2.6× slower than the CPU** (66.9 ms),
+  for a kernel that takes 3.1 ms.
+- A surprise worth understanding: n = 262,144 showed **728 GB/s, 227% of DRAM peak**. The three
+  arrays total 3 MB and fit in the T4's 4 MB **L2 cache**, so the repeated benchmark iterations
+  read from L2, not DRAM. Small benchmarks can measure the cache instead of memory. Always
+  check whether your working set fits in L2.
+- The grid-stride version with 160 blocks was slower than one-thread-per-element at large n
+  (3.88 vs 3.07 ms): too few memory requests in flight to saturate DRAM.
+
 ## 12. DeviceBuffer: RAII for GPU memory (`src/utils/device_buffer.cuh`)
 
 Manual CUDA memory management looks like this:

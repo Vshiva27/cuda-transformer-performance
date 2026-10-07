@@ -319,6 +319,17 @@ fused kernel:  read x, read residual → (h in registers) → write h, write y  
 Read the actual number from Experiment B. If it is smaller than 1.25×, think about what else
 limits the fused kernel (one block per row, register use → occupancy) and check in Phase 10.
 
+**Measured on a Tesla T4 (12_results §5):**
+- ✔ Large shapes: **1.20–1.21×**, close to the 1.25× byte-count bound. The fused kernel was
+  1.27–1.50× faster than eager PyTorch's `x + r` followed by `layer_norm`.
+- ✘ The small shape (512 × 768) gained only **1.04×**, not more. At that size the intermediate
+  h (1.5 MB) stays in the T4's 4 MB L2 cache, so the unfused pipeline's read-back of h is a cheap
+  L2 hit. And when kernels are queued back-to-back, their launch overhead overlaps with the
+  previous kernel's execution. **Fusion pays off most when the intermediate would otherwise
+  travel to and from DRAM.**
+- v3 (row in registers) reached 72–74% of peak bandwidth on large shapes, and was 1.38× faster
+  than PyTorch's `layer_norm` at 8192 × 4096.
+
 This exact fusion exists in production inference engines (for example "fused add + RMSNorm" in
 TensorRT-LLM and vLLM), together with many others (bias + activation, QKV split + rotary
 embedding). Fusion is one of the most effective inference optimizations for memory-bound ops.

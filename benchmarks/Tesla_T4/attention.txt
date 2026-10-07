@@ -1,0 +1,46 @@
+=================== GPU ===================
+Device 0            : Tesla T4
+Compute capability  : 7.5
+CUDA runtime/driver : 13.0 / 13.0
+SMs                 : 40
+Warp size           : 32
+Max threads / block : 1024
+Max threads / SM    : 1024
+Registers / block   : 65536
+Shared mem / block  : 48 KB
+Shared mem / SM     : 64 KB
+L2 cache            : 4096 KB
+Global memory       : 14.56 GiB total, 14.46 GiB free
+Peak mem bandwidth  : 320.1 GB/s (theoretical)
+Peak FP32 compute   : 8141 GFLOP/s (approx: 64 cores/SM x 40 SMs x 1.59 GHz x 2)
+Ridge point         : 25.4 FLOP/byte
+===========================================
+
+Experiment A: prefill attention, heads = 12, d = 64, FP32
+
+NON-CAUSAL (same shapes as python/benchmark.py)
+     seq | unfused ms |      QK^T   softmax        PV |   fused ms |   speedup | workspace MB |   CPU ms
+     128 |     0.0659 |    0.0283    0.0057    0.0313 |     0.0886 |     0.74x |          0.8 |     29.2
+     512 |     1.0270 |    0.5993    0.1366    0.5075 |     1.8208 |     0.56x |         12.0 |    472.2
+    1024 |     9.2523 |    2.3439    0.7496    1.9976 |    12.0522 |     0.77x |         48.0 |   1930.8
+    2048 |    18.3831 |    8.2948    3.0577    7.2461 |    29.3472 |     0.63x |        192.0 |        -
+
+CAUSAL (decoder models)
+     seq | unfused ms |      QK^T   softmax        PV |   fused ms |   speedup | workspace MB |   CPU ms
+     128 |     0.0723 |    0.0311    0.0063    0.0347 |     0.0764 |     0.95x |          0.8 |     13.3
+     512 |     1.0115 |    0.5944    0.1360    0.5105 |     0.9625 |     1.05x |         12.0 |    246.5
+    1024 |     4.2425 |    2.4353    0.7498    2.0652 |     3.4189 |     1.24x |         48.0 |    961.5
+    2048 |    18.1715 |    8.2287    3.0560    7.2501 |    15.0150 |     1.21x |        192.0 |        -
+
+
+Experiment B: one decoding step (generate 1 token) with a context of L tokens, fused kernel
+       L | with KV cache (ms) |   recompute all (ms) |      ratio
+     128 |             0.0312 |               0.0772 |       2.5x
+     512 |             0.1060 |               0.7288 |       6.9x
+    1024 |             0.2588 |               3.4768 |      13.4x
+    2048 |             0.5032 |              15.0928 |      30.0x
+
+KV cache size, GPT-2 small (12 layers, hidden 768), FP16:
+  per token: 2 x 12 layers x 768 x 2 bytes = 36 KB
+  context 1024 tokens: 36.0 MB per sequence
+  context 2048 tokens: 72.0 MB per sequence

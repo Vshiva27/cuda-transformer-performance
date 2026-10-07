@@ -424,6 +424,23 @@ partial max and sum, and a second small kernel merges them with the §10 rule).
 **Experiment C:** block size for v2. Small blocks → fewer threads per row and more rows per SM.
 Large blocks → more barrier levels and many idle threads during the tree.
 
+### Measured on a Tesla T4 (12_results §4): what held, and what didn't
+
+- ✔ v1 is far behind everywhere (≈ 32 GB/s, 10% of peak). The 1 × 50,257 row is terrible for
+  every design (best 7.2 GB/s). Warp-per-row wins for short rows (32 and 256 columns: about
+  220 GB/s vs 15 and 107 for block-per-row).
+- ✘ **The crossover comes earlier than predicted.** From 1,024 columns upward, block-per-row (v2)
+  wins: 243.8 vs 138.2 GB/s at 16,384 × 1,024. That includes the attention-like shape
+  12,288 × 1,024, where v2 was 12% faster than PyTorch's softmax. The cause is not yet
+  confirmed; it's a Phase 10 profiling question.
+- ✘ **Online softmax (v4) was not faster than v3.** It was equal or slower (e.g. 221 vs 285 GB/s
+  at 1024 × 128). The pass it saves was mostly an L1/L2 hit anyway, and it does more work per
+  element: a branch, plus an extra `expf` every time the running max changes. **Lesson: online
+  softmax earns its place by enabling fusion (FlashAttention, 07 §6), not as a standalone
+  speedup.** Fewer bytes only help when those bytes would have come from DRAM.
+- Block size: 256 was best for v2 at 4096 × 1024 (238.6 GB/s); 1024 collapsed to 51.8 GB/s
+  (one block per SM, 10 barrier levels per reduction).
+
 ---
 
 ## 12. Common mistakes

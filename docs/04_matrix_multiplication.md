@@ -375,6 +375,18 @@ columns. Then predict the sector count per load before looking at the time. Also
 `32×1` (32 threads per block): an SM can hold only a limited number of blocks (16 on T4,
 32 on A100), so tiny blocks cannot fill the SM. That is low occupancy.
 
+**Measured on a Tesla T4 (12_results §2):**
+- ✔ Coalescing alone (v1 → v2) gave **9.5×** at n = 1024. The rest of the progression:
+  shared-memory tiling 1.5×, register tiling 2.6×. v4 reached 2,236 GFLOP/s, **36.5× faster than
+  v1 and 60% of cuBLAS FP32**.
+- ✔ Small sizes favor simple kernels: at n = 128, v2 was the fastest and v4 2.8× slower (too few
+  64 × 64 blocks for 40 SMs).
+- ✔ Decode shapes (M = 1): v2 reached 205–224 GB/s (86–92% of cuBLAS), while the tiled
+  v3/v4 waste almost every tile row and were 4–5× slower.
+- ✘ **32 × 1 blocks were the fastest v2 shape** (598.8 GFLOP/s vs 530.4 for 32 × 8), despite the
+  occupancy argument above. Occupancy is one factor, not the whole story. Explaining this result
+  is a Phase 10 (Nsight Compute) exercise.
+
 ---
 
 ## 8. Correctness testing (`tests/test_matmul.cu`)

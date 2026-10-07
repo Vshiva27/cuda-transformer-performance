@@ -182,10 +182,13 @@ def attention_naive(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.
 
 
 def attention_sdpa(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
-    """PyTorch's fused attention (scaled_dot_product_attention).
+    """PyTorch's scaled_dot_product_attention.
 
-    Depending on dtype and GPU it uses a fused kernel (FlashAttention or
-    "memory-efficient" attention) that never stores the full seq x seq score
-    matrix in global memory — compare its memory column with attention_naive.
+    PyTorch picks a backend from the dtype, GPU and shapes: a fused kernel
+    (FlashAttention or "memory-efficient" attention) that never stores the
+    full seq x seq score matrix, or a plain "math" fallback that does.
+    Measured on a T4 with FP32 inputs (docs/12_results.md section 6), SDPA
+    used MORE memory than attention_naive, i.e. no memory-saving kernel was
+    used; benchmark.py therefore also measures it with FP16 inputs.
     """
     return F.scaled_dot_product_attention(q, k, v)

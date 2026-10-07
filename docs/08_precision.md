@@ -329,6 +329,19 @@ Write the 16 × 16 FP32 result to C[tile_row..][tile_col..], with row length N.
 
 ---
 
+### Measured on a Tesla T4 (12_results §3)
+
+- ✔ v5 WMMA: 3,289.5 GFLOP/s at n = 1024, **1.49× the best FP32 kernel (v4)**. The FP16 tiled
+  kernel on CUDA cores was no faster than FP32 tiled, as predicted in §6.
+- **But our WMMA reached only ~9% of cuBLAS FP16** (35,884 GFLOP/s). This confirms the
+  limitation above: without shared-memory staging and fragment reuse, the Tensor Cores spend
+  most of their time waiting for data.
+- ✔ FP16 accumulation error at K = 16,384: 3.6e-2 (emulation predicted 2.8e-2), vs 4.4e-6 with
+  FP32 accumulation. The FP16-accumulator overflow test produced 256/256 inf outputs.
+- Tensor Core FP32 accumulation measured ~7× less accurate than CUDA-core FP32 at K = 16,384
+  (2.95e-5 vs 4.35e-6, as a fraction of the output scale). That is still FP32-class, and far
+  better than FP16 accumulation.
+
 ## 8. Experiments in `bench_precision`, and how to read them
 
 - **A (speed):** compare FP32 v4 against WMMA. This is the Tensor Core effect. The FP16 tiled

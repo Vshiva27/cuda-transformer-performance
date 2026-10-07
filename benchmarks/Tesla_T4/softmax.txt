@@ -1,0 +1,82 @@
+=================== GPU ===================
+Device 0            : Tesla T4
+Compute capability  : 7.5
+CUDA runtime/driver : 13.0 / 13.0
+SMs                 : 40
+Warp size           : 32
+Max threads / block : 1024
+Max threads / SM    : 1024
+Registers / block   : 65536
+Shared mem / block  : 48 KB
+Shared mem / SM     : 64 KB
+L2 cache            : 4096 KB
+Global memory       : 14.56 GiB total, 14.46 GiB free
+Peak mem bandwidth  : 320.1 GB/s (theoretical)
+Peak FP32 compute   : 8141 GFLOP/s (approx: 64 cores/SM x 40 SMs x 1.59 GHz x 2)
+Ridge point         : 25.4 FLOP/byte
+===========================================
+
+Experiment A: softmax over rows, FP32 (shapes shared with python/benchmark.py)
+
+1024 x 128   CPU (double-precision reference): 2.419 ms
+  version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row    |     0.1057 |       9.9 |    3.1% |    1.00x |    22.9x
+  v2 block/row     |     0.0195 |      53.8 |   16.8% |    5.42x |   124.1x
+  v3 warp/row      |     0.0037 |     285.4 |   89.2% |   28.78x |   658.6x
+  v4 warp online   |     0.0047 |     221.0 |   69.1% |   22.29x |   510.0x
+
+4096 x 512   CPU (double-precision reference): 42.900 ms
+  version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row    |     0.5109 |      32.8 |   10.3% |    1.00x |    84.0x
+  v2 block/row     |     0.1061 |     158.2 |   49.4% |    4.82x |   404.4x
+  v3 warp/row      |     0.0857 |     195.8 |   61.2% |    5.96x |   500.5x
+  v4 warp online   |     0.1104 |     152.0 |   47.5% |    4.63x |   388.7x
+
+4096 x 1024   CPU (double-precision reference): 76.851 ms
+  version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row    |     1.0526 |      31.9 |   10.0% |    1.00x |    73.0x
+  v2 block/row     |     0.1404 |     239.0 |   74.7% |    7.50x |   547.3x
+  v3 warp/row      |     0.2634 |     127.4 |   39.8% |    4.00x |   291.8x
+  v4 warp online   |     0.2658 |     126.2 |   39.4% |    3.96x |   289.1x
+
+12288 x 1024   CPU (double-precision reference): 232.980 ms
+  version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row    |     3.1607 |      31.8 |   10.0% |    1.00x |    73.7x
+  v2 block/row     |     0.4140 |     243.2 |   76.0% |    7.64x |   562.8x
+  v3 warp/row      |     0.7349 |     137.0 |   42.8% |    4.30x |   317.0x
+  v4 warp online   |     0.7748 |     129.9 |   40.6% |    4.08x |   300.7x
+
+
+Experiment B: row length sensitivity (~16M elements each), GB/s per version
+
+      rows x cols     |   v1 thread/row |    v2 block/row |     v3 warp/row |  v4 warp online |
+    524288 x 32       |            11.6 |            15.2 |           218.0 |           160.4 |
+     65536 x 256      |             5.6 |           106.5 |           227.1 |           200.5 |
+     16384 x 1024     |            32.9 |           243.8 |           138.2 |           130.0 |
+      4096 x 4096     |            33.0 |           202.4 |           108.1 |           121.8 |
+      1024 x 16384    |             9.7 |           122.5 |           105.3 |           114.8 |
+       256 x 65536    |             2.4 |           112.4 |            83.1 |            69.1 |
+       334 x 50257    |             3.9 |            95.9 |            76.4 |            69.9 |
+         1 x 50257    |             0.1 |             7.2 |             1.0 |             0.6 |
+
+
+Experiment C: v2 block size, 4096 x 1024
+
+  block size |         ms |      GB/s
+          32 |     0.1888 |     177.8
+          64 |     0.1755 |     191.1
+         128 |     0.1477 |     227.2
+         256 |     0.1406 |     238.6
+         512 |     0.2523 |     133.0
+        1024 |     0.6480 |      51.8
+
+
+Experiment C: v2 block size, 256 x 65536
+
+  block size |         ms |      GB/s
+          32 |     1.6330 |      82.2
+          64 |     1.3149 |     102.1
+         128 |     1.2081 |     111.1
+         256 |     1.1902 |     112.8
+         512 |     1.1879 |     113.0
+        1024 |     1.1555 |     116.2

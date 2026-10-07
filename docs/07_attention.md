@@ -422,7 +422,13 @@ results with the same rescaling rule. It's the split-row idea from 05 §11 again
 - `speedup` = unfused / fused. Compare it with §6's limitations. Causal fused should be roughly
   2× cheaper than non-causal fused (skipped keys); causal unfused is not (it computes everything
   and masks).
-- Compare with PyTorch's `naive (3 kernels)` and `SDPA (fused)` rows from `python/benchmark.py`
+- Measured on a T4 (12_results §6): our fused kernel was 0.56–0.77× the speed of unfused for
+  non-causal attention, but 1.2× faster with causal masking at seq ≥ 1024, using no score
+  buffer (unfused: 192 MB at seq 2048). Causal fused cost about half of non-causal fused, as
+  predicted.
+- Compare with PyTorch's `naive (3 kernels)` and `SDPA (fused)` rows from `python/benchmark.py`.
+  Note that on the T4 with FP32 inputs, SDPA saved **no** memory (438 MB at seq 2048): PyTorch's
+  memory-saving backends weren't used for FP32 there. See the FP16 SDPA rows.
   (same non-causal shapes).
 
 **B (KV cache):** time of one decoding step with the cache (1 × L) against recomputing attention

@@ -1,5 +1,6 @@
 build/
 __pycache__/
+# Binary profiler reports (large); their text/CSV exports are kept.
 *.ncu-rep
 *.nsys-rep
 *.sqlite

@@ -20,7 +20,18 @@ Start reading at [docs/01_project_overview.md](docs/01_project_overview.md).
 | 7 | FP16 / FP32 accumulation, GEMM v5 (warp-level Tensor Cores), quantization concept | ✅ implemented |
 | 8 | Attention: unfused (batched GEMM + softmax) and fused (online softmax), causal mask, KV cache | ✅ implemented |
 | 9 | Benchmark framework: one-command run, CSV output, automatic summary, Colab notebook | ✅ implemented |
-| 10–11 | Nsight profiling, results, interview prep, resume bullets | ⏳ (needs a real GPU run) |
+| – | **First real run: Tesla T4, CUDA 13.0 — all 6 test programs pass; results in [docs/12_results.md](docs/12_results.md)** | ✅ measured |
+| 10 | Nsight profiling toolkit: `profile_targets`, resource usage, Nsight Systems timeline, Nsight Compute sections + metrics, Colab notebook, 13 testable hypotheses | ✅ implemented (awaiting profiler reports) |
+| 11 | Optimization write-up, interview prep, resume bullets | ⏳ |
+
+**Headline results (Tesla T4, FP32 unless noted, all measured):**
+- **GEMM 1024³:** 61 → 2,236 GFLOP/s across four versions (**36.5×**); the final version is **60% of cuBLAS**.
+- **Tensor Cores:** a WMMA kernel is 1.49× faster than the best FP32 kernel.
+- **Softmax:** up to **12% faster than PyTorch** on attention-shaped rows.
+- **LayerNorm:** reaches 72–74% of peak bandwidth.
+- **Fused residual add + LayerNorm:** 1.21× faster than the two separate kernels, and up to **1.5× faster than PyTorch's**.
+- **Fused causal attention:** needs no seq² score buffer.
+- **KV-cache decoding step:** **30× cheaper** than recomputing attention at a 2,048-token context.
 
 ## Requirements
 
