@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="362" viewBox="0 0 800 362" role="img" aria-labelledby="t d">
-  <title id="t">FP32 GEMM, 1024 × 1024 × 1024 on a Tesla T4</title>
+  <title id="t">FP32 GEMM, 1024 × 1024 × 1024 on Tesla T4</title>
   <desc id="d">GFLOP/s: CPU single thread 5.44012; v1 naive 61.2401; v2 coalesced 582.101; v3 shared-memory tiles 867.4; v4 register tiles 2235.58; cuBLAS 3729.924882184269.</desc>
   <style>
     .title { font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
@@ -37,7 +37,7 @@
     }
   </style>
   <rect class="bg" x="0.5" y="0.5" width="799" height="361" rx="12"/>
-  <text class="title" x="24" y="36">FP32 GEMM, 1024 × 1024 × 1024 on a Tesla T4</text>
+  <text class="title" x="24" y="36">FP32 GEMM, 1024 × 1024 × 1024 on Tesla T4</text>
   <text class="sub" x="24" y="58">GFLOP/s, higher is better · each version removes one measured bottleneck</text>
   <rect class="s1" x="24" y="74" width="12" height="12" rx="2"/>
   <text class="note" x="42" y="84">Our CUDA kernels</text>

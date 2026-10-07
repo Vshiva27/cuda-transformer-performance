@@ -2,7 +2,8 @@
 // =============================================================================
 // make_charts.js — regenerate the README charts (assets/*.svg) from measured data.
 //
-//   node assets/make_charts.js [benchmarks/<GPU>] [profiling/reports]
+//   node assets/make_charts.js [benchmarks/<GPU>] [profiling/reports/<GPU>] [output dir]
+//   (defaults: the Tesla_T4 results, the profiling folder with the same GPU name, assets/)
 //
 // Every bar and point is read from the CSV files written by the benchmarks
 // (src/benchmark/csv_log.h, python/benchmark.py) and by Nsight Compute
@@ -23,8 +24,9 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '..');
 const benchDir = path.resolve(process.argv[2] || path.join(root, 'benchmarks', 'Tesla_T4'));
-const profDir = path.resolve(process.argv[3] || path.join(root, 'profiling', 'reports'));
-const outDir = __dirname;
+const profDir = path.resolve(process.argv[3] || path.join(root, 'profiling', 'reports', path.basename(benchDir)));
+const outDir = path.resolve(process.argv[4] || __dirname);  // e.g. assets/A100 for a second GPU
+fs.mkdirSync(outDir, { recursive: true });
 
 // -----------------------------------------------------------------------------
 // Data loading
@@ -78,6 +80,33 @@ const precision = bench('precision');
 const attention = bench('attention');
 const torch = bench('pytorch');
 const ncuLayernorm = readCsv(path.join(profDir, 'ncu_layernorm_metrics.csv'), '"ID"');
+
+// The GPU and its theoretical peak bandwidth come from this run, never from constants,
+// so the same script works for a T4, A100 or H100 result folder.
+const GPU = matmul[0].gpu;
+const peakMatch = /Peak mem bandwidth\s*:\s*([0-9.]+)/.exec(fs.readFileSync(path.join(benchDir, 'vector_add.txt'), 'utf8'));
+if (!peakMatch) throw new Error('peak bandwidth not found in vector_add.txt');
+const PEAK_GBS = parseFloat(peakMatch[1]);
+
+// Axis ranges scale with the data: a "nice" step (1, 2, 2.5 or 5 x 10^k) giving ~5 ticks.
+function niceTicks(maxValue, target = 5) {
+  const raw = maxValue / target;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+  const top = Math.ceil(maxValue / step) * step;
+  const ticks = [];
+  for (let t = 0; t <= top + step / 2; t += step) ticks.push(Math.round(t * 1e6) / 1e6);
+  return { max: top, ticks };
+}
+// Decades covering [min, max] for log axes.
+function decades(minValue, maxValue) {
+  const lo = Math.floor(Math.log10(minValue));
+  const hi = Math.ceil(Math.log10(maxValue));
+  const ticks = [];
+  for (let e = lo; e <= hi; e++) ticks.push(10 ** e);
+  return { min: 10 ** lo, max: 10 ** hi, ticks };
+}
+const fmtNum = (t) => (t >= 1000 ? fmtInt(t) : `${t}`);
 
 // -----------------------------------------------------------------------------
 // Theme and SVG helpers
@@ -271,7 +300,7 @@ function lineChart(spec) {
 
 function write(name, svg) {
   fs.writeFileSync(path.join(outDir, name), svg);
-  console.log(`wrote assets/${name}`);
+  console.log(`wrote ${path.relative(root, path.join(outDir, name))}`);
 }
 
 const sup = (n) => String(n).replace('-', '⁻').replace(/[0-9]/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d]);
@@ -290,11 +319,11 @@ const sup = (n) => String(n).replace('-', '⁻').replace(/[0-9]/g, (d) => '⁰¹
   const cublas = pick(torch, { op: 'matmul', impl: 'cuBLAS fp32', shape }, 'gflops');
   const one = (label, cls, value, valueText, note) => ({ label, bars: [{ cls, value, valueText, note }] });
   write('gemm_progression.svg', barChart({
-    title: 'FP32 GEMM, 1024 × 1024 × 1024 on a Tesla T4',
+    title: `FP32 GEMM, 1024 × 1024 × 1024 on ${GPU}`,
     sub: 'GFLOP/s, higher is better · each version removes one measured bottleneck',
     desc: `GFLOP/s: CPU single thread ${cpu}; v1 naive ${v1}; v2 coalesced ${v2}; v3 shared-memory tiles ${v3}; v4 register tiles ${v4}; cuBLAS ${cublas}.`,
     legend: [{ cls: 's1', label: 'Our CUDA kernels' }, { cls: 's2', label: 'cuBLAS reference (PyTorch, TF32 off)' }],
-    labelW: 210, plotW: 480, xmax: 4000, ticks: [0, 1000, 2000, 3000, 4000], tickFmt: fmtInt, groupGap: 16,
+    labelW: 210, plotW: 480, xmax: niceTicks(Math.max(cublas, v4) * 1.05).max, ticks: niceTicks(Math.max(cublas, v4) * 1.05).ticks, tickFmt: fmtNum, groupGap: 16,
     rows: [
       one('CPU, 1 thread', 's1', cpu, `${cpu}`),
       one('v1 naive', 's1', v1, fmtInt(v1)),
@@ -311,7 +340,7 @@ const sup = (n) => String(n).replace('-', '⁻').replace(/[0-9]/g, (d) => '⁰¹
 // 2. Memory-bound kernels vs the bandwidth ceiling
 // -----------------------------------------------------------------------------
 {
-  const peak = 320.1;  // from the device query (benchmarks/Tesla_T4/*.txt)
+  const peak = PEAK_GBS;  // the GPU's theoretical peak, from this run's device query
   const va = pick(vecadd, { experiment: 'A sizes', impl: 'naive', shape: 'n=67108864' }, 'gbs');
   const vaT = pick(torch, { op: 'vector_add', shape: 'n=67108864' }, 'gbs');
   const smV1 = pick(softmax, { experiment: 'A shapes', impl: 'v1 thread/row', shape: '12288x1024' }, 'gbs');
@@ -324,11 +353,11 @@ const sup = (n) => String(n).replace('-', '⁻').replace(/[0-9]/g, (d) => '⁰¹
   const b = (cls, v, note) => ({ cls, value: v, valueText: `${r1(v)}`, note });
   write('memory_bandwidth.svg', barChart({
     title: 'Memory-bound kernels: achieved DRAM bandwidth',
-    sub: 'GB/s on a Tesla T4 (minimum bytes / kernel time) · dashed line = theoretical peak',
+    sub: `GB/s on ${GPU} (minimum bytes / kernel time) · dashed line = theoretical peak`,
     desc: `Vector add: ours ${va}, PyTorch ${vaT}. Softmax 12288x1024: naive ${smV1}, ours ${smBest}, PyTorch ${smT}. LayerNorm 8192x4096: naive ${lnV1}, ours ${lnBest}, PyTorch ${lnT}. Peak ${peak} GB/s.`,
     legend: [{ cls: 's3', label: 'Naive (thread per row)' }, { cls: 's1', label: 'Ours, optimized' },
       { cls: 's2', label: 'PyTorch' }],
-    labelW: 190, plotW: 470, xmax: 350, ticks: [0, 50, 100, 150, 200, 250, 300, 350], tickFmt: fmtInt,
+    labelW: 190, plotW: 470, xmax: niceTicks(Math.max(peak, va, vaT, smBest, smT, lnBest, lnT) * 1.1).max, ticks: niceTicks(Math.max(peak, va, vaT, smBest, smT, lnBest, lnT) * 1.1).ticks, tickFmt: fmtNum,
     groupGap: 20, ref: { value: peak, label: `peak ${Math.round(peak)}` }, noteX: 700,
     rows: [
       { label: 'Vector add, 2²⁶', bars: [b('s1', va, pct(va)), b('s2', vaT, pct(vaT))] },
@@ -375,10 +404,10 @@ const sup = (n) => String(n).replace('-', '⁻').replace(/[0-9]/g, (d) => '⁰¹
   const warp = gbs('v3 warp/row');
   write('softmax_row_length.svg', lineChart({
     title: 'Softmax: the best design depends on the row length',
-    sub: '~16M elements per point, rows getting longer and fewer · GB/s on a Tesla T4',
+    sub: `~16M elements per point, rows getting longer and fewer · GB/s on ${GPU}`,
     desc: `Columns 32..65536. Block per row: ${block.join(', ')} GB/s. Warp per row: ${warp.join(', ')} GB/s.`,
     xvals: shapes.map(([, c]) => c), xlabels: ['32', '256', '1K', '4K', '16K', '64K'], xLabel: 'columns per row',
-    y: { min: 0, max: 300, ticks: [0, 100, 200, 300], fmt: (t) => `${t}`, label: 'GB/s' },
+    y: { min: 0, ...niceTicks(Math.max(...block, ...warp) * 1.1), fmt: fmtNum, label: 'GB/s' },
     series: [
       { legend: 'Block per row (shared-memory tree)', fill: 's1', line: 'l1', values: block, endLabel: 'block per row' },
       { legend: 'Warp per row (shuffles)', fill: 's3', line: 'l3', values: warp, endLabel: 'warp per row' },
@@ -397,10 +426,10 @@ const sup = (n) => String(n).replace('-', '⁻').replace(/[0-9]/g, (d) => '⁰¹
   const last = ks.length - 1;
   write('precision_error.svg', lineChart({
     title: 'Why accumulation stays in FP32',
-    sub: 'GEMM with FP16 inputs, 64 × 64 × K · max error / max |exact| (log scale) · Tesla T4',
+    sub: `GEMM with FP16 inputs, 64 × 64 × K · max error / max |exact| (log scale) · ${GPU}`,
     desc: `K = ${ks.join(', ')}. FP32 accumulation error: ${acc32.join(', ')}. FP16 accumulation error: ${acc16.join(', ')}.`,
     xvals: ks, xlabels: ks.map(fmtInt), xLabel: 'K (length of each dot product)',
-    y: { min: 1e-7, max: 1e-1, log: true, ticks: [1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
+    y: { ...decades(Math.min(...acc32), Math.max(...acc16)), log: true,
       fmt: (t) => `10${sup(Math.round(Math.log10(t)))}`, label: 'error' },
     series: [
       { legend: 'FP16 accumulator', fill: 's3', line: 'l3', values: acc16, endLabel: 'FP16 accumulator' },
@@ -422,10 +451,10 @@ const sup = (n) => String(n).replace('-', '⁻').replace(/[0-9]/g, (d) => '⁰¹
   const last = ctx.length - 1;
   write('kv_cache.svg', lineChart({
     title: 'KV cache: cost of generating one token',
-    sub: 'Attention time for one decoding step, 12 heads, d = 64 · ms (log scale) · Tesla T4',
+    sub: `Attention time for one decoding step, 12 heads, d = 64 · ms (log scale) · ${GPU}`,
     desc: `Context ${ctx.join(', ')}. With KV cache: ${cached.join(', ')} ms. Recomputing attention: ${full.join(', ')} ms.`,
     xvals: ctx, xlabels: ctx.map(fmtInt), xLabel: 'context length (tokens)',
-    y: { min: 0.01, max: 100, log: true, ticks: [0.01, 0.1, 1, 10, 100], fmt: (t) => `${t}`, label: 'ms' },
+    y: { ...decades(Math.min(...cached), Math.max(...full)), log: true, fmt: (t) => `${t}`, label: 'ms' },
     series: [
       { legend: 'Recompute attention for all tokens', fill: 's3', line: 'l3', values: full, endLabel: 'recompute all' },
       { legend: 'With KV cache (1 query)', fill: 's1', line: 'l1', values: cached, endLabel: 'with KV cache' },

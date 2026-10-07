@@ -38,7 +38,7 @@
   </style>
   <rect class="bg" x="0.5" y="0.5" width="799" height="379" rx="12"/>
   <text class="title" x="24" y="36">Softmax: the best design depends on the row length</text>
-  <text class="sub" x="24" y="58">~16M elements per point, rows getting longer and fewer · GB/s on a Tesla T4</text>
+  <text class="sub" x="24" y="58">~16M elements per point, rows getting longer and fewer · GB/s on Tesla T4</text>
   <rect class="s1" x="24" y="74" width="12" height="12" rx="2"/>
   <text class="note" x="42" y="84">Block per row (shared-memory tree)</text>
   <rect class="s3" x="306.64" y="74" width="12" height="12" rx="2"/>
