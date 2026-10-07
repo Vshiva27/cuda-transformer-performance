@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="366" viewBox="0 0 800 366" role="img" aria-labelledby="t d">
+  <title id="t">FP32 GEMM throughput, 1024 x 1024 x 1024, Tesla T4</title>
+  <desc id="d">GFLOP/s: CPU single thread 5.4; v1 naive 61.2; v2 coalesced 582.1; v3 shared-memory tiles 867.4; v4 register tiles 2235.6 (36.5 times v1); cuBLAS reference 3729.9. Measured on a Tesla T4 with CUDA 13.0.</desc>
+  <style>
+    .bg     { fill: #fcfcfb; stroke: #e6e5e0; }
+    .title  { fill: #0b0b0b; font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .sub    { fill: #52514e; font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .label  { fill: #0b0b0b; font: 500 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .value  { fill: #0b0b0b; font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-variant-numeric: tabular-nums; }
+    .note   { fill: #52514e; font: 400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .tick   { fill: #52514e; font: 400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-variant-numeric: tabular-nums; }
+    .grid   { stroke: #ebeae6; stroke-width: 1; }
+    .base   { stroke: #b9b8b2; stroke-width: 1; }
+    .ours   { fill: #2a78d6; }
+    .ref    { fill: #eb6834; }
+    @media (prefers-color-scheme: dark) {
+      .bg    { fill: #1a1a19; stroke: #333331; }
+      .title, .label, .value { fill: #ffffff; }
+      .sub, .note, .tick     { fill: #c3c2b7; }
+      .grid  { stroke: #2e2e2c; }
+      .base  { stroke: #5c5b57; }
+      .ours  { fill: #3987e5; }
+      .ref   { fill: #d95926; }
+    }
+  </style>
+
+  <rect class="bg" x="0.5" y="0.5" width="799" height="365" rx="12"/>
+
+  <text class="title" x="24" y="36">FP32 GEMM, 1024 × 1024 × 1024 on a Tesla T4</text>
+  <text class="sub" x="24" y="58">GFLOP/s, higher is better · each version removes one measured bottleneck</text>
+
+  <!-- legend -->
+  <rect class="ours" x="24" y="74" width="12" height="12" rx="2"/>
+  <text class="note" x="42" y="84">Our CUDA kernels</text>
+  <rect class="ref" x="170" y="74" width="12" height="12" rx="2"/>
+  <text class="note" x="188" y="84">cuBLAS reference (PyTorch, TF32 off)</text>
+
+  <!-- grid: x = 222 + v/4000*480 -->
+  <line class="grid" x1="342" y1="104" x2="342" y2="326"/>
+  <line class="grid" x1="462" y1="104" x2="462" y2="326"/>
+  <line class="grid" x1="582" y1="104" x2="582" y2="326"/>
+  <line class="grid" x1="702" y1="104" x2="702" y2="326"/>
+  <line class="base" x1="222" y1="104" x2="222" y2="326"/>
+  <text class="tick" x="222" y="346" text-anchor="middle">0</text>
+  <text class="tick" x="342" y="346" text-anchor="middle">1,000</text>
+  <text class="tick" x="462" y="346" text-anchor="middle">2,000</text>
+  <text class="tick" x="582" y="346" text-anchor="middle">3,000</text>
+  <text class="tick" x="702" y="346" text-anchor="middle">4,000</text>
+
+  <!-- rows: top = 110 + i*38, bar height 22; rounded data end, square baseline -->
+  <text class="label" x="210" y="125" text-anchor="end">CPU, 1 thread</text>
+  <rect class="ours" x="222" y="110" width="2" height="22"/>
+  <text class="value" x="232" y="125">5.4</text>
+
+  <text class="label" x="210" y="163" text-anchor="end">v1 naive</text>
+  <rect class="ours" x="222" y="148" width="7.3" height="22" rx="2"/>
+  <text class="value" x="237" y="163">61</text>
+
+  <text class="label" x="210" y="201" text-anchor="end">v2 coalesced</text>
+  <path class="ours" d="M222 186 H287.9 Q291.9 186 291.9 190 V204 Q291.9 208 287.9 208 H222 Z"/>
+  <text class="value" x="299.9" y="201">582</text>
+  <text class="note" x="330" y="201">9.5× (coalescing)</text>
+
+  <text class="label" x="210" y="239" text-anchor="end">v3 shared-memory tiles</text>
+  <path class="ours" d="M222 224 H322.1 Q326.1 224 326.1 228 V242 Q326.1 246 322.1 246 H222 Z"/>
+  <text class="value" x="334.1" y="239">867</text>
+  <text class="note" x="365" y="239">1.5× (data reuse)</text>
+
+  <text class="label" x="210" y="277" text-anchor="end">v4 register tiles</text>
+  <path class="ours" d="M222 262 H486.3 Q490.3 262 490.3 266 V280 Q490.3 284 486.3 284 H222 Z"/>
+  <text class="value" x="498.3" y="277">2,236</text>
+  <text class="note" x="541" y="277">2.6× · 36.5× over v1 · 60% of cuBLAS</text>
+
+  <text class="label" x="210" y="315" text-anchor="end">cuBLAS</text>
+  <path class="ref" d="M222 300 H665.6 Q669.6 300 669.6 304 V318 Q669.6 322 665.6 322 H222 Z"/>
+  <text class="value" x="677.6" y="315">3,730</text>
+</svg>
