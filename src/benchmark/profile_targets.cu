@@ -200,6 +200,8 @@ static void case_quantization() {
     target("gemv fp16 weights", 1, [&] { gpu::gemv_fp16(Wh.data(), x.data(), y.data(), N, K); });
     target("gemv int8 weights, per-row scale", 1,
            [&] { gpu::gemv_int8(q.data(), scale.data(), x.data(), y.data(), N, K); });
+    target("gemv int8 weights, 4 rows/warp", 1,
+           [&] { gpu::gemv_int8_multirow(q.data(), scale.data(), x.data(), y.data(), N, K, 4); });
 }
 int main(int argc, char** argv) {
     std::string which = "all";

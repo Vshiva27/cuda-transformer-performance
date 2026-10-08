@@ -14,6 +14,11 @@
 //   Uniform weights, then the same weights with 16 outliers (|w| = 50, vs 1 for
 //   all others), to compare one scale per row with one scale for the tensor.
 //   rel. RMS error = sqrt(sum (y - exact)^2 / sum exact^2).
+// Experiment C (rows per warp): the INT8 multi-row kernel with R = 1, 2, 4, 8
+//   rows per warp on the 7B-class shapes. Nsight Compute showed the one-row
+//   INT8 kernel is limited by L1 (x is re-read for every row), not DRAM
+//   (docs/12 §9.1); reading x once per R rows should move it back towards DRAM.
+//   Experiment A also includes R = 4 as "int8 weights, 4 rows/warp".
 //
 // Every kernel is verified against an exact (double) product of the weights it
 // actually reads before it is timed.
@@ -40,7 +45,8 @@
 #include "utils/host_utils.h"
 #include "utils/precision_utils.cuh"
 
-enum class Format { FP32, FP16, INT8 };
+// INT8_R4: INT8 weights, multi-row kernel with 4 rows per warp (x read once per 4 rows).
+enum class Format { FP32, FP16, INT8, INT8_R4 };
 
 // One weight matrix, stored on the GPU in all three formats.
 struct DecodeLayer {
@@ -71,6 +77,9 @@ struct DecodeLayer {
             case Format::FP32: gpu::gemv_fp32(d_W.data(), d_x.data(), d_y.data(), N, K); break;
             case Format::FP16: gpu::gemv_fp16(d_Wh.data(), d_x.data(), d_y.data(), N, K); break;
             case Format::INT8: gpu::gemv_int8(d_q.data(), d_scale.data(), d_x.data(), d_y.data(), N, K); break;
+            case Format::INT8_R4:
+                gpu::gemv_int8_multirow(d_q.data(), d_scale.data(), d_x.data(), d_y.data(), N, K, 4);
+                break;
         }
     }
 
@@ -83,7 +92,7 @@ struct DecodeLayer {
     // Exact product of the weights the kernel for `f` actually reads.
     std::vector<double> exact_for(Format f) const {
         std::vector<double> y(N);
-        if (f == Format::INT8) {
+        if (f == Format::INT8 || f == Format::INT8_R4) {
             cpu::gemv_int8_f64(h_q.data(), h_scale.data(), h_x.data(), y.data(), N, K);
         } else if (f == Format::FP16) {
             const std::vector<float> W16 = round_to_half_on_gpu(h_W);
@@ -103,7 +112,8 @@ struct DecodeLayer {
         switch (f) {
             case Format::FP32: return 4.0 * weights + io;
             case Format::FP16: return 2.0 * weights + io;
-            case Format::INT8: return 1.0 * weights + 4.0 * N + io;
+            case Format::INT8:
+            case Format::INT8_R4: return 1.0 * weights + 4.0 * N + io;
         }
         return 0.0;
     }
@@ -122,6 +132,7 @@ static const FormatInfo kFormats[] = {
     {Format::FP32, "fp32 weights", "fp32"},
     {Format::FP16, "fp16 weights", "fp16"},
     {Format::INT8, "int8 weights, per-row scale", "int8"},
+    {Format::INT8_R4, "int8 weights, 4 rows/warp", "int8"},
 };
 
 static double rel_rms_error(const std::vector<double>& exact, const std::vector<float>& out) {
@@ -245,5 +256,49 @@ int main(int argc, char** argv) {
     std::printf("\nOne outlier sets the scale of everything that shares it: with a per-tensor scale every\n");
     std::printf("weight in the matrix gets a step of 50/127 ~= 0.39; with per-row scales only the rows\n");
     std::printf("that contain an outlier do.\n");
+
+    // ------------------------------------------------------------------------
+    // Experiment C: rows per warp, INT8 multi-row kernel (7B-class shapes)
+    // ------------------------------------------------------------------------
+    std::printf("\n\nExperiment C: INT8 weights, rows per warp (x read once per R rows), 7B-class shapes\n");
+    std::printf("R = 1 is the multi-row kernel with one row; 'one row/warp' is the original kernel (Experiment A)\n");
+    for (const NamedShape& s : shapes) {
+        if (s.K < 4096) continue;  // only the 7B-class shapes: weights larger than L2
+        const size_t n = static_cast<size_t>(s.N) * s.K;
+        if (7.0 * n > info.free_mem_bytes / 2.0) continue;
+        std::vector<float> W(n);
+        fill_random(W, 31);
+        DecodeLayer L(std::move(W), s.N, s.K);
+        const std::vector<double> exact = L.exact_for(Format::INT8);
+        const std::string shape = std::string(s.name) + " " + dims(s.N, s.K);
+
+        std::printf("\n%s  (N=%d, K=%d)\n", s.name, s.N, s.K);
+        std::printf("  %-16s | %10s | %9s | %7s | %13s\n", "rows per warp", "ms", "GB/s", "% peak", "vs one row/warp");
+        const float base_ms = time_gpu_ms([&] { L.run(Format::INT8); }, 5, 50);
+        std::printf("  %-16s | %10.4f | %9.1f | %6.1f%% | %13s\n", "one row/warp", base_ms,
+                    bandwidth_gbs(L.min_bytes(Format::INT8), base_ms),
+                    peak > 0 ? 100.0 * bandwidth_gbs(L.min_bytes(Format::INT8), base_ms) / peak : 0.0, "1.00x");
+        for (int rows : {1, 2, 4, 8}) {
+            auto launch = [&] {
+                gpu::gemv_int8_multirow(L.d_q.data(), L.d_scale.data(), L.d_x.data(), L.d_y.data(), L.N, L.K, rows);
+            };
+            launch();
+            const ErrorStats e = measure_error(exact, L.download());
+            if (e.non_finite > 0 || e.scaled_err > 1e-4) {
+                std::fprintf(stderr, "int8 multirow R=%d gave a WRONG result for %s (scaled error %.2e)\n", rows,
+                             s.name, e.scaled_err);
+                return EXIT_FAILURE;
+            }
+            const float ms = time_gpu_ms(launch, 5, 50);
+            const double gbs = bandwidth_gbs(L.min_bytes(Format::INT8), ms);
+            char label[32], vs[32];
+            std::snprintf(label, sizeof(label), "R = %d", rows);
+            std::snprintf(vs, sizeof(vs), "%.2fx", base_ms / ms);
+            std::printf("  %-16s | %10.4f | %9.1f | %6.1f%% | %13s\n", label, ms, gbs,
+                        peak > 0 ? 100.0 * gbs / peak : 0.0, vs);
+            log.add("C rows per warp", "int8 multirow R=" + std::to_string(rows), shape, "int8", ms,
+                    2.0 * s.N * s.K / (ms * 1e-3) / 1e9, gbs);
+        }
+    }
     return EXIT_SUCCESS;
 }

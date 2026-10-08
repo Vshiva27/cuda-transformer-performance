@@ -33,4 +33,12 @@ void gemv_fp16(const __half* d_W, const float* d_x, float* d_y, int N, int K);
 // A per-tensor scale is the special case where all scale[n] are equal.
 void gemv_int8(const int8_t* d_q, const float* d_scale, const float* d_x, float* d_y, int N, int K);
 
+// Same result, but each warp computes `rows_per_warp` consecutive outputs (1, 2, 4 or 8).
+// Why: with one row per warp, every weight costs 4 bytes of x read through L1 whatever the
+// weight type, and for INT8 that x traffic, not DRAM, became the limit (Nsight Compute:
+// L1/TEX 93%, DRAM 48%; docs/12 §9.1). Reading each x chunk once into registers and using
+// it for R rows divides the x traffic by R.
+void gemv_int8_multirow(const int8_t* d_q, const float* d_scale, const float* d_x, float* d_y, int N, int K,
+                        int rows_per_warp);
+
 }  // namespace gpu

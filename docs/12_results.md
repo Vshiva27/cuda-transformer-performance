@@ -458,7 +458,9 @@ ncu locks the clock to base, so its durations are a little longer than the bench
 
 So the first unverified guess (x reads per byte of W) was right, specifically the L1 side of it,
 and the instruction-issue side was not. The fix is to reuse each x value for several rows:
-a warp that computes R outputs reads x once for R rows, cutting x's L1 traffic by R.
+a warp that computes R outputs reads x once for R rows, cutting x's L1 traffic by R. This is
+implemented as `gpu::gemv_int8_multirow` (R = 1, 2, 4, 8; `bench_quantization` Experiment C and
+the "4 rows/warp" rows of Experiment A); its results are not measured yet.
 
 **GPT-2-small decode shapes** (2–9 MB of FP32 weights, which fit in L2) take 4.9–6.7 µs in every
 format, and INT8 is only 1.02–1.09× faster than FP32: at this size the time is launch and

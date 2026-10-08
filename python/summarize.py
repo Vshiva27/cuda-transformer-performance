@@ -164,14 +164,17 @@ def headlines(data: dict, torch_rows: list) -> list:
     qz = data.get("quantization", [])
     q_shape = "7B-class MLP up 11008x4096"
     q = {name: find(qz, experiment="A decode gemv", impl=name, shape=q_shape)
-         for name in ("fp32 weights", "fp16 weights", "int8 weights, per-row scale")}
+         for name in ("fp32 weights", "fp16 weights", "int8 weights, per-row scale", "int8 weights, 4 rows/warp")}
     q_ms = {name: metric(row, "ms") for name, row in q.items()}
     line(f"**Decode GEMV {q_shape} (ms, GB/s):** FP32 {fmt(q_ms['fp32 weights'], 4)} "
          f"({fmt(metric(q['fp32 weights'], 'gbs'), 1)}), FP16 {fmt(q_ms['fp16 weights'], 4)} "
          f"({fmt(metric(q['fp16 weights'], 'gbs'), 1)}), INT8 {fmt(q_ms['int8 weights, per-row scale'], 4)} "
          f"({fmt(metric(q['int8 weights, per-row scale'], 'gbs'), 1)}) → INT8 vs FP32 "
          f"{ratio(q_ms['fp32 weights'], q_ms['int8 weights, per-row scale'])}, INT8 vs FP16 "
-         f"{ratio(q_ms['fp16 weights'], q_ms['int8 weights, per-row scale'])}")
+         f"{ratio(q_ms['fp16 weights'], q_ms['int8 weights, per-row scale'])}; INT8 4 rows/warp "
+         f"{fmt(q_ms['int8 weights, 4 rows/warp'], 4)} ({fmt(metric(q['int8 weights, 4 rows/warp'], 'gbs'), 1)}) → "
+         f"vs FP32 {ratio(q_ms['fp32 weights'], q_ms['int8 weights, 4 rows/warp'])}, "
+         f"vs FP16 {ratio(q_ms['fp16 weights'], q_ms['int8 weights, 4 rows/warp'])}")
     for case in ("uniform", "uniform + 16 outliers"):
         exp = f"B accuracy, {case}"
         notes = {s: (find(qz, experiment=exp, impl=s) or {}).get("note", "n/a")

@@ -444,13 +444,31 @@ holds for every output. On a 64 × 1000 matrix with one outlier (50), the relati
   exactly 1 byte per weight, but every weight also needs 4 bytes of x, read through L1 by each
   warp. That x traffic does not shrink with the weights, so L1/TEX throughput rises from 21%
   (FP32) to 51% (FP16) to 93% (INT8): the bottleneck moved from DRAM to L1. The fix is to reuse
-  each x value across several output rows per warp.
+  each x value across several output rows per warp: `gemv_int8_multirow` (below, not measured
+  yet).
 - **GPT-2-small shapes** (weights fit in L2) take 5–7 µs in every format; INT8 gains ≤ 1.09×.
 - **Accuracy:** INT8 adds 0.4% relative RMS error on uniform weights (FP16: 0.02%). With 16
   outliers, per-tensor scales give 20% error; per-row scales give 1.5%.
 
 The lesson for interviews: fewer bytes only help while bytes are the bottleneck. Halving them
 once (FP16) moved the full 2×; halving them again exposed the next limit inside the kernel.
+
+### Next version: several rows per warp (`gemv_int8_multirow`)
+
+The one-row kernel multiplies each chunk of x with one row, so x is read through L1 once per
+row. `gemv_multirow_kernel<WT, VECTORIZED, ROWS>` gives each warp ROWS consecutive outputs:
+
+1. issue the ROWS 16-byte weight loads (one per row) before using any of them, so more bytes
+   are in flight per warp;
+2. load the matching chunk of x into registers **once**;
+3. multiply it with all ROWS weight chunks, one accumulator per row;
+4. reduce each accumulator with `warp_reduce_sum` and apply that row's scale.
+
+x's L1 traffic per weight drops from 4 bytes to 4/ROWS bytes. The cost is fewer warps
+(N / ROWS) and more registers per thread, so the best ROWS has to be measured:
+`bench_quantization` Experiment C sweeps ROWS = 1, 2, 4, 8 on the 7B-class shapes, and
+`profile_targets quantization` profiles ROWS = 4 next to the one-row kernels. The original
+one-row kernel is kept unchanged, as the baseline. Results: not measured yet.
 
 What this does **not** do: INT4 or group-wise scales (one scale per 64–128 weights), INT8 Tensor
 Cores or activation quantization (W8A8), calibration on a real model (the weights are random),
@@ -565,7 +583,8 @@ Experiments A–D (§8).
 Decode GEMV y = W x with FP32, FP16 or INT8 weights (§9): one template kernel
 `gemv_kernel<WT, VECTORIZED>`, one warp per output, 16-byte loads, FP32 accumulation, and the
 per-row scale applied once after the warp reduction. Launchers: `gpu::gemv_fp32`,
-`gpu::gemv_fp16`, `gpu::gemv_int8`.
+`gpu::gemv_fp16`, `gpu::gemv_int8`; `gemv_multirow_kernel<WT, VECTORIZED, ROWS>` and
+`gpu::gemv_int8_multirow` (several rows per warp, x read once for all of them).
 
 ### `src/cpu/cpu_ops.cpp` — `cpu::quantize_int8`, `cpu::gemv_f64`, `cpu::gemv_int8_f64`
 Symmetric INT8 quantization (per row or per tensor), and exact double-precision GEMV references

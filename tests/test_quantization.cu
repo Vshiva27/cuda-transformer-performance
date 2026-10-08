@@ -11,6 +11,8 @@
 //    test_precision.cu. An indexing bug produces errors of order 1.
 //    Shapes cover N not a multiple of 8 (partial last block) and K whose rows
 //    are not a multiple of 16 bytes (the one-weight-per-load fallback path).
+//    The INT8 multi-row kernel is checked with 1, 2, 4 and 8 rows per warp, so
+//    N not a multiple of the rows per warp (a partly filled last warp) is covered.
 // 3. Quantization error bound: each weight is off by at most scale/2, so
 //    |y_int8[n] - y_fp32_exact[n]| <= scale[n]/2 * sum_k |x[k]| must hold for
 //    every output (plus FP32 rounding of the kernel, covered by the 2e-5 slack).
@@ -131,6 +133,18 @@ static void test_gemv_shapes() {
             d_y.copy_from_host(std::vector<float>(s.N, -999.0f));
             gpu::gemv_int8(d_q.data(), d_scale.data(), d_x.data(), d_y.data(), s.N, s.K);
             check(per_tensor ? "int8 per-tensor" : "int8 per-row", exact8);
+
+            // Multi-row kernel: same weights, same reference, every rows-per-warp setting.
+            if (!per_tensor) {
+                for (int rows : {1, 2, 4, 8}) {
+                    d_y.copy_from_host(std::vector<float>(s.N, -999.0f));
+                    gpu::gemv_int8_multirow(d_q.data(), d_scale.data(), d_x.data(), d_y.data(), s.N, s.K, rows);
+                    const std::string name = "int8 multirow R=" + std::to_string(rows);
+                    check(name.c_str(), exact8);
+                }
+                d_y.copy_from_host(std::vector<float>(s.N, -999.0f));
+                gpu::gemv_int8(d_q.data(), d_scale.data(), d_x.data(), d_y.data(), s.N, s.K);  // y for the bound below
+            }
 
             // Error bound against the ORIGINAL FP32 weights.
             d_y.copy_to_host(y);
