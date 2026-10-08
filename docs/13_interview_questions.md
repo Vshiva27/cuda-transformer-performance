@@ -34,7 +34,8 @@ say it in the interview.
 (a) GEMM indexing and tiling: the k-tile loop and two barriers; (b) online softmax and its
 NaN edge cases with masked −∞ scores; (c) the profiler showing that my 32×1-block hypothesis was
 wrong (it was DRAM traffic, not L1); (d) the INT8 GEMV, where each fix exposed the next
-bottleneck: DRAM → L1 → too few warps.
+bottleneck: DRAM → L1 → too few warps. All challenges, with how each was solved:
+[11_optimization.md §9](11_optimization.md#9-challenges-faced-and-how-they-were-solved).
 
 **"What would you do next?"** → [11_optimization.md §8](11_optimization.md): WMMA with
 shared-memory staging (9% of cuBLAS FP16 today), FlashAttention-style tiles, flash-decoding,

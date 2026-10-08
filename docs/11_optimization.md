@@ -2,7 +2,8 @@
 
 This document ties the project together. For every kernel version it states the bottleneck,
 the **evidence** (benchmark or profiler counter), the change made, and the **measured** result.
-It includes the changes that did *not* help, because explaining those is part of the skill.
+It includes the changes that did *not* help, because explaining those is part of the skill, and
+ends with the challenges faced along the way and how they were solved (§9).
 
 All numbers: Tesla T4, CUDA 13.0, FP32 unless noted. Sources:
 [12_results.md](12_results.md) (benchmarks) and [10_nsight_profiling.md §9](10_nsight_profiling.md)
@@ -165,3 +166,58 @@ attention by parallelism.
 7. **INT8 GEMV:** coalesced activation loads (halve the half-used sectors) and splitting each
    row's K range across warps, so more rows per warp keep enough warps busy (3.2× of a possible
    ~4× today).
+
+---
+
+## 9. Challenges faced, and how they were solved
+
+The problems that cost real time in this project, in one place. Each entry: what went wrong, how
+it showed up, what fixed it, and the lesson. Details are in the linked sections.
+
+### 9.1 Correctness
+
+| Challenge | How it showed up | Fix | Lesson |
+|---|---|---|---|
+| **Variance computed as E[x²] − mean²** (one pass) | in a float demonstration it gave **2.125 instead of 0.086** (catastrophic cancellation) | two-pass variance: mean first, then Σ(x − mean)² from registers (06 §3) | an algebraically equal formula can be numerically wrong; test with large offsets |
+| **Online softmax with masked (−∞) scores** | causal attention rows became NaN: with the running max still −∞, the update computed exp(−∞ − (−∞)) = NaN | skip −∞ values in the update (they contribute exp(−∞) = 0 anyway) (07 §5) | masking creates inputs a plain softmax test never sees; test the masked case |
+| **Choosing tolerances** | a fixed tolerance either failed correct kernels (summation order differs from the CPU) or passed buggy ones | tolerances derived from the arithmetic (grow with K or row length), checked by CPU emulation of each kernel's summation order; poison values in outputs; a provable error bound for INT8 (scale/2 · Σ\|x\|) | a tolerance needs a reason; an indexing bug gives errors of order 1, rounding gives ~1e-6 |
+| **Code written without a local GPU** | every kernel change could only be compiled and run on Colab, one round trip per attempt | CPU checks before each run: g++ for the host code (quantization, references), a PyTorch stand-in for the GPT-2 C++ ops (FP32 logits matched Hugging Face to 2.5e-7 on CPU), lint, and `run_all.sh` refusing to benchmark if any test fails | catch everything that doesn't need a GPU before using the GPU; the INT8, multi-row and GPT-2 code all passed their tests on the first GPU run |
+
+### 9.2 Measurement
+
+| Challenge | How it showed up | Fix | Lesson |
+|---|---|---|---|
+| **Timing an asynchronous launch** | a CPU timer without synchronization "measured" **0.024 ms** for a 3.07 ms kernel | CUDA events around many back-to-back launches, after a warm-up (09) | measure GPU time with GPU timestamps |
+| **Clock throttling on the Colab T4** | one attention row was inflated; five identical GEMM v1 launches took **36.8–92.5 ms** | marked the row †, re-measured with the Nsight Systems timeline (4.12 / 5.08 ms) (12 §6, 10 §9.2) | a single number from a shared cloud GPU can be wrong; repeat and cross-check |
+| **Clocks after idle time** (A100) | the first shape of the rows-per-warp sweep timed **28% slower** than the same kernel elsewhere in the same run | marked those values unreliable; the sweep now warms up for 100 launches instead of 5 (12 §9.2) | a GPU that idled during CPU work needs a longer warm-up |
+| **L2 cache inflating "bandwidth"** | rows above **100% of DRAM peak** (softmax 4096×512 on the A100: 107%) | only rows whose data exceeds L2 count as DRAM results; 7B-class shapes added for the GEMV (09 §21) | know the cache size before claiming bandwidth |
+| **Results that differ between runs** | four A100 runs: most rows within 1%, but cuBLAS FP16 varied 9% and fused attention at seq 2048 measured 7.81 / 6.43 / 7.84 ms | one run per results page, the run named, unstable rows stated (12 §9) | report run-to-run spread instead of hiding it |
+
+### 9.3 Performance: when the expected bottleneck wasn't the real one
+
+| Challenge | How it showed up | Fix | Lesson |
+|---|---|---|---|
+| **32×1 blocks were fastest** (v2 GEMM), against the "better L1 hit rate" hypothesis | Nsight: L1 hit rate was *worse* (19.8% vs 87.4%) | the real cause: 35% less DRAM traffic and half the queue stalls (10 §9.3, H3) | write the hypothesis down, then let the counters decide |
+| **Warp-per-row softmax lost at 1,024 columns** | 1.8× slower than block-per-row | Nsight: it re-read x **2.77×** from DRAM because ~5 MB of rows in flight exceeded the 4 MB L2 (H7) | working-set size vs cache size decides access patterns |
+| **Fused attention slower than unfused** (non-causal) | 5.08 vs 4.12 ms at seq 1024 | Nsight: instruction-issue-bound (FMA 60%, DRAM 0.4%), not memory-starved (H12) | fusion removes bytes, not instructions |
+| **INT8 weights only 2.2× faster, not 4×** | the GEMV reached only 46–61% of DRAM peak | Nsight: L1 at 94% (activations re-read through L1 for every row); reading them once per 2 rows gave **3.2×** (12 §9.1–9.2) | fewer bytes help only while DRAM is the bottleneck |
+| **My own traffic model was off by 2×** | predicted L1 sectors didn't match the counters at 4 rows per warp | FP16/INT8 activation loads fill only half of each 32-byte sector; with that, the model matches all four kernels within 0.2% (10 §9.7, H15) | when a model disagrees with the counters, fix the model, then it explains everything |
+| **More rows per warp got slower** (4, 8) | R = 8 on a 4096-row layer was slower than the original kernel | Nsight: 0.64 waves, 34% occupancy at R = 4; R = 8 launched 64 blocks for 108 SMs (12 §9.2) | reuse costs parallelism; sweep the parameter |
+
+### 9.4 Running a real model (GPT-2)
+
+| Challenge | How it showed up | Fix | Lesson |
+|---|---|---|---|
+| **Weight layout** | Hugging Face GPT-2 stores linear layers as `Conv1D` `[in, out]`; our GEMV expects `[out, in]` | transpose once at load time (14 §3) | check the checkpoint's layout, not the library's usual one |
+| **KV cache with spare capacity** | the attention kernel located head h at `h · kv_len · d`, which assumes a packed cache; real caches are preallocated for max_len | `AttentionShape::kv_capacity`, tested with NaN in the unused rows (bit-identical to packed) (14 §3) | kernels written for benchmarks need an interface for real memory layouts |
+| **INT8 text diverged on GPT-2 small** | logits 1.8% off, greedy text different after 4 tokens (GPT-2 XL: 32/32) | reported as measured; cause not investigated (14 §4) | check generated text, not only logit error |
+| **End-to-end speed didn't follow the kernel speedup** | INT8 and FP16 both 6.5 ms/token on GPT-2 XL | launch floor: ~725 launches × ~8.5 µs ≈ 6.2 ms (14 §5) | at batch 1 the launch count can matter more than the kernels |
+| **A misleading 5× over Hugging Face** | our decode loop ~5× faster than Hugging Face eager | Hugging Face FP32 and FP16 took the same time: the gap is Python overhead; documented as "do not claim" | a speedup needs a mechanism before it is a result |
+
+### 9.5 Workflow
+
+| Challenge | How it showed up | Fix | Lesson |
+|---|---|---|---|
+| **A profiling case silently missing** | the zip had no `ncu_quantization_*` files after a full profiling run | most likely an older copy of the notebook was running in Colab (its case list predated the new case); the case was re-run separately | the notebook in Colab is not updated by uploading new code; check the outputs list, not just "no error" |
+| **Results filed under the wrong GPU** | the GPT-2 runs were on an A100-**80GB**, but the command wrote into the 40GB folder | refiled under `benchmarks/NVIDIA_A100_SXM4_80GB/` and noted the different bandwidth (14 §5) | read the GPU name from the output, not the path |
+| **Keeping docs and numbers in sync across reruns** | each new A100 run moved numbers slightly; README claims became stale (e.g. "86–88%" when softmax was at 80%) | numbers extracted by script from one run's CSVs; stale claims grep-checked before each commit | write numbers from data, never from memory |

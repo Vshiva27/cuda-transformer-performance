@@ -14,7 +14,7 @@ GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores · IN
 [![Profiled](https://img.shields.io/badge/profiled-Nsight%20Compute%20%7C%20Systems-555555)](docs/10_nsight_profiling.md)
 [![Baseline](https://img.shields.io/badge/baseline-PyTorch%20%2F%20cuBLAS-EE4C2C?logo=pytorch&logoColor=white)](python/)
 
-[Results](docs/12_results.md) · [Optimization story](docs/11_optimization.md) · [Profiling](docs/10_nsight_profiling.md) · [Docs](docs/01_project_overview.md) · [Run it](#run-it)
+[Results](docs/12_results.md) · [Optimization story](docs/11_optimization.md) · [Challenges](docs/11_optimization.md#9-challenges-faced-and-how-they-were-solved) · [Profiling](docs/10_nsight_profiling.md) · [Docs](docs/01_project_overview.md) · [Run it](#run-it)
 
 </div>
 
@@ -317,7 +317,7 @@ A step-by-step guide that explains every kernel line by line, written to be read
 | [01](docs/01_project_overview.md) | Project overview and architecture | [08](docs/08_precision.md) | FP32 / FP16, Tensor Cores, quantization |
 | [02](docs/02_cuda_fundamentals.md) | CUDA fundamentals, vector add | [09](docs/09_benchmarking.md) | Benchmarking methodology |
 | [03](docs/03_memory_hierarchy.md) | Memory hierarchy and the roofline | [10](docs/10_nsight_profiling.md) | Nsight profiling and measured hypotheses |
-| [04](docs/04_matrix_multiplication.md) | GEMM v1–v4, with 4×4 traces | [11](docs/11_optimization.md) | The optimization story |
+| [04](docs/04_matrix_multiplication.md) | GEMM v1–v4, with 4×4 traces | [11](docs/11_optimization.md) | The optimization story, and challenges faced (§9) |
 | [05](docs/05_softmax.md) | Softmax and warp shuffles | [12](docs/12_results.md) | All measured results |
 | [06](docs/06_layernorm.md) | LayerNorm and kernel fusion | [13](docs/13_interview_questions.md) | Interview questions and answers |
 | [07](docs/07_attention.md) | Attention and the KV cache | [14](docs/14_llm_integration.md) | Running GPT-2 on these kernels |
