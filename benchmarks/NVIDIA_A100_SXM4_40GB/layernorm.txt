@@ -1,0 +1,53 @@
+=================== GPU ===================
+Device 0            : NVIDIA A100-SXM4-40GB
+Compute capability  : 8.0
+CUDA runtime/driver : 13.0 / 13.0
+SMs                 : 108
+Warp size           : 32
+Max threads / block : 1024
+Max threads / SM    : 2048
+Registers / block   : 65536
+Shared mem / block  : 48 KB
+Shared mem / SM     : 164 KB
+L2 cache            : 40960 KB
+Global memory       : 39.49 GiB total, 39.08 GiB free
+Peak mem bandwidth  : 1555.2 GB/s (theoretical)
+Peak FP32 compute   : 19492 GFLOP/s (approx: 64 cores/SM x 108 SMs x 1.41 GHz x 2)
+Ridge point         : 12.5 FLOP/byte
+===========================================
+
+Experiment A: LayerNorm over the hidden dimension, FP32
+
+512 x 768 (GPT-2 small, 512 tokens)   CPU (double-precision reference): 1.565 ms
+  version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row      |     0.8053 |       3.9 |    0.3% |    1.00x |     1.9x
+  v2 warp/row        |     0.0092 |     343.2 |   22.1% |   87.87x |   170.8x
+  v3 block/row regs  |     0.0053 |     594.2 |   38.2% |  152.11x |   295.7x
+
+2048 x 768 (GPT-2 small, 2048 tokens)   CPU (double-precision reference): 6.457 ms
+  version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row      |     0.8066 |      15.6 |    1.0% |    1.00x |     8.0x
+  v2 warp/row        |     0.0103 |    1221.5 |   78.5% |   78.30x |   626.8x
+  v3 block/row regs  |     0.0099 |    1269.4 |   81.6% |   81.37x |   651.4x
+
+4096 x 1024 (BERT-large/GPT-2 medium, 4096 tokens)   CPU (double-precision reference): 17.289 ms
+  version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row      |     0.8907 |      37.7 |    2.4% |    1.00x |    19.4x
+  v2 warp/row        |     0.0298 |    1126.4 |   72.4% |   29.90x |   580.4x
+  v3 block/row regs  |     0.0265 |    1264.7 |   81.3% |   33.57x |   651.6x
+
+8192 x 4096 (LLaMA-7B hidden size, 8192 tokens)   CPU (double-precision reference): 135.141 ms
+  version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
+  v1 thread/row      |     3.5629 |      75.3 |    4.8% |    1.00x |    37.9x
+  v2 warp/row        |     0.4655 |     576.6 |   37.1% |    7.65x |   290.3x
+  v3 block/row regs  |     0.2012 |    1334.4 |   85.8% |   17.71x |   671.8x
+
+
+Experiment B: residual add + LayerNorm, unfused (2 kernels) vs fused (1 kernel)
+GB/s uses the task's minimum traffic of 16 bytes/element for both.
+
+  shape        |   unfused ms |     fused ms | unfused GB/s | fused GB/s |  speedup
+  512x768      |       0.0092 |       0.0059 |        685.7 |     1068.5 |    1.56x
+  2048x768     |       0.0184 |       0.0128 |       1364.6 |     1962.9 |    1.44x
+  4096x1024    |       0.0695 |       0.0557 |        965.8 |     1204.9 |    1.25x
+  8192x4096    |       0.4998 |       0.4058 |       1074.3 |     1323.0 |    1.23x

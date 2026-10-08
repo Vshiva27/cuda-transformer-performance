@@ -1,0 +1,141 @@
+=================== GPU ===================
+Device 0            : NVIDIA A100-SXM4-40GB
+Compute capability  : 8.0
+CUDA runtime/driver : 13.0 / 13.0
+SMs                 : 108
+Warp size           : 32
+Max threads / block : 1024
+Max threads / SM    : 2048
+Registers / block   : 65536
+Shared mem / block  : 48 KB
+Shared mem / SM     : 164 KB
+L2 cache            : 40960 KB
+Global memory       : 39.49 GiB total, 39.08 GiB free
+Peak mem bandwidth  : 1555.2 GB/s (theoretical)
+Peak FP32 compute   : 19492 GFLOP/s (approx: 64 cores/SM x 108 SMs x 1.41 GHz x 2)
+Ridge point         : 12.5 FLOP/byte
+===========================================
+
+Experiment A: square GEMM, n x n x n, FP32, default configuration of each version
+(CPU skipped above n = 1024; there the verified v1 result is the reference.
+ v1 skipped above n = 2048, where it takes seconds per launch; there v2 is the
+ reference: it adds the products in exactly the same order as v1.
+ n = 4096 is included so that large GPUs such as A100/H100 are filled.)
+
+n = 32   CPU: 0.011 ms (6.10 GFLOP/s)
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           |     0.0092 |        7.1 |    0.0% |        - |    1.00x |      1.2x
+  v2 coalesced       |     0.0037 |       17.8 |    0.1% |    2.50x |    2.50x |      2.9x
+  v3 tiled-32        |     0.0042 |       15.5 |    0.1% |    0.88x |    2.18x |      2.5x
+  v4 register 4x4    |     0.0078 |        8.4 |    0.0% |    0.54x |    1.18x |      1.4x
+
+n = 64   CPU: 0.085 ms (6.17 GFLOP/s)
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           |     0.0157 |       33.3 |    0.2% |        - |    1.00x |      5.4x
+  v2 coalesced       |     0.0049 |      106.9 |    0.5% |    3.21x |    3.21x |     17.3x
+  v3 tiled-32        |     0.0058 |       91.0 |    0.5% |    0.85x |    2.73x |     14.7x
+  v4 register 4x4    |     0.0142 |       37.0 |    0.2% |    0.41x |    1.11x |      6.0x
+
+n = 128   CPU: 0.632 ms (6.64 GFLOP/s)
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           |     0.0282 |      148.5 |    0.8% |        - |    1.00x |     22.4x
+  v2 coalesced       |     0.0072 |      580.6 |    3.0% |    3.91x |    3.91x |     87.5x
+  v3 tiled-32        |     0.0087 |      482.4 |    2.5% |    0.83x |    3.25x |     72.7x
+  v4 register 4x4    |     0.0255 |      164.4 |    0.8% |    0.34x |    1.11x |     24.8x
+
+n = 256   CPU: 4.878 ms (6.88 GFLOP/s)
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           |     0.1504 |      223.2 |    1.1% |        - |    1.00x |     32.4x
+  v2 coalesced       |     0.0163 |     2058.3 |   10.6% |    9.22x |    9.22x |    299.2x
+  v3 tiled-32        |     0.0152 |     2202.9 |   11.3% |    1.07x |    9.87x |    320.2x
+  v4 register 4x4    |     0.0504 |      665.8 |    3.4% |    0.30x |    2.98x |     96.8x
+
+n = 512   CPU: 41.575 ms (6.46 GFLOP/s)
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           |     0.9804 |      273.8 |    1.4% |        - |    1.00x |     42.4x
+  v2 coalesced       |     0.0833 |     3224.4 |   16.5% |   11.78x |   11.78x |    499.4x
+  v3 tiled-32        |     0.0679 |     3953.9 |   20.3% |    1.23x |   14.44x |    612.4x
+  v4 register 4x4    |     0.0982 |     2734.1 |   14.0% |    0.69x |    9.99x |    423.5x
+
+n = 1024   CPU: 319.577 ms (6.72 GFLOP/s)
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           |     7.4200 |      289.4 |    1.5% |        - |    1.00x |     43.1x
+  v2 coalesced       |     0.5823 |     3688.1 |   18.9% |   12.74x |   12.74x |    548.8x
+  v3 tiled-32        |     0.4183 |     5134.3 |   26.3% |    1.39x |   17.74x |    764.1x
+  v4 register 4x4    |     0.3006 |     7143.9 |   36.7% |    1.39x |   24.68x |   1063.1x
+
+n = 2048   CPU: skipped
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           |    59.0883 |      290.7 |    1.5% |        - |    1.00x |         -
+  v2 coalesced       |     4.7665 |     3604.3 |   18.5% |   12.40x |   12.40x |         -
+  v3 tiled-32        |     3.1769 |     5407.8 |   27.7% |    1.50x |   18.60x |         -
+  v4 register 4x4    |     2.1303 |     8064.4 |   41.4% |    1.49x |   27.74x |         -
+
+n = 4096   CPU: skipped
+  version            |         ms |    GFLOP/s |  % peak |  vs prev |    vs v1 |    vs CPU
+  v1 naive           | skipped (too slow at this size)
+  v2 coalesced       |    56.2290 |     2444.3 |   12.5% |        - |        - |         -
+  v3 tiled-32        |    25.8050 |     5326.1 |   27.3% |    2.18x |        - |         -
+  v4 register 4x4    |    16.5642 |     8297.3 |   42.6% |    1.56x |        - |         -
+
+
+Experiment B: Transformer-shaped GEMMs (GPT-2 small), FP32
+GB/s = minimum bytes (read A and B once, write C once) / time
+
+QKV projection, prefill 512 tokens  (M=512, N=2304, K=768)
+  version            |         ms |    GFLOP/s |       GB/s
+  v1 naive           |     6.3793 |      284.0 |        2.1
+  v2 coalesced       |     0.4918 |     3684.1 |       27.2
+  v3 tiled-32        |     0.3459 |     5238.8 |       38.7
+  v4 register 4x4    |     0.2261 |     8013.2 |       59.1
+
+MLP up-projection, prefill 512 tokens  (M=512, N=3072, K=768)
+  version            |         ms |    GFLOP/s |       GB/s
+  v1 naive           |     8.4632 |      285.5 |        2.0
+  v2 coalesced       |     0.6488 |     3723.4 |       26.7
+  v3 tiled-32        |     0.4682 |     5159.9 |       37.0
+  v4 register 4x4    |     0.3393 |     7120.5 |       51.0
+
+MLP down-projection, prefill 512 tokens  (M=512, N=768, K=3072)
+  version            |         ms |    GFLOP/s |       GB/s
+  v1 naive           |     8.8816 |      272.0 |        1.9
+  v2 coalesced       |     0.6982 |     3460.1 |       24.8
+  v3 tiled-32        |     0.5090 |     4746.7 |       34.0
+  v4 register 4x4    |     0.5706 |     4234.2 |       30.3
+
+QKV projection, decode 1 token  (M=1, N=2304, K=768)
+  version            |         ms |    GFLOP/s |       GB/s
+  v1 naive           |     0.0428 |       82.7 |      165.6
+  v2 coalesced       |     0.0297 |      119.3 |      239.0
+  v3 tiled-32        |     0.0387 |       91.4 |      183.1
+  v4 register 4x4    |     0.1255 |       28.2 |       56.5
+
+MLP up-projection, decode 1 token  (M=1, N=3072, K=768)
+  version            |         ms |    GFLOP/s |       GB/s
+  v1 naive           |     0.0579 |       81.6 |      163.4
+  v2 coalesced       |     0.0298 |      158.2 |      316.8
+  v3 tiled-32        |     0.0388 |      121.5 |      243.4
+  v4 register 4x4    |     0.1256 |       37.6 |       75.2
+
+
+Experiment C: block shapes, v2 coalesced, n = 1024
+
+ block.x |  block.y |  threads |         ms |    GFLOP/s
+---------+----------+----------+------------+-----------
+      32 |        1 |       32 |     0.7431 |     2889.8
+      32 |        4 |      128 |     0.5797 |     3704.6
+      32 |        8 |      256 |     0.5803 |     3700.6
+      32 |       16 |      512 |     0.5836 |     3679.9
+      32 |       32 |     1024 |     0.5989 |     3585.5
+      16 |       16 |      256 |     0.6881 |     3120.8
+       8 |        8 |       64 |     1.1326 |     1896.0
+       8 |       32 |      256 |     1.1246 |     1909.6
+
+
+Experiment D: tile sizes, v3 tiled, n = 1024
+
+  tile |  threads |   shared bytes |         ms |    GFLOP/s
+-------+----------+----------------+------------+-----------
+     8 |       64 |            512 |     0.7503 |     2862.2
+    16 |      256 |           2048 |     0.4637 |     4631.5
+    32 |     1024 |           8192 |     0.4180 |     5137.6

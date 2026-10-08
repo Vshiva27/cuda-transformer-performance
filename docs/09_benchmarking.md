@@ -431,7 +431,7 @@ node assets/make_charts.js benchmarks/<GPU> profiling/reports/<GPU> assets/<GPU>
 ```
 
 `<GPU>` is the name from `nvidia-smi` with special characters replaced by `_`, e.g.
-`NVIDIA_A100-SXM4-40GB`. The chart script reads that GPU's name and peak bandwidth from its
+`NVIDIA_A100_SXM4_40GB`. The chart script reads that GPU's name and peak bandwidth from its
 own results, and scales every axis to the data. Results from different GPUs never overwrite
 each other.
 

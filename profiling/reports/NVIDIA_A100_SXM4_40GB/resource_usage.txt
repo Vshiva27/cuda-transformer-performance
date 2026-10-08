@@ -1,0 +1,212 @@
+
+member /content/cuda-performance-project/build/libctp_core.a:device_info.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/src/utils/device_info.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+
+member /content/cuda-performance-project/build/libctp_core.a:cpu_ops.cpp.o:
+
+member /content/cuda-performance-project/build/libctp_core.a:vector_add.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/vector_add.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function vector_add_grid_stride_kernel(float const*, float const*, float*, int):
+  REG:26 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function vector_add_naive_kernel(float const*, float const*, float*, int):
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:380 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:matmul_basic.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/matmul_basic.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function matmul_coalesced_kernel(float const*, float const*, float*, int, int, int):
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function matmul_naive_kernel(float const*, float const*, float*, int, int, int):
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:matmul_tiled.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/matmul_tiled.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function void matmul_tiled_kernel<32>(float const*, float const*, float*, int, int, int):
+  REG:32 STACK:0 SHARED:8192 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void matmul_tiled_kernel<16>(float const*, float const*, float*, int, int, int):
+  REG:32 STACK:0 SHARED:2048 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void matmul_tiled_kernel<8>(float const*, float const*, float*, int, int, int):
+  REG:32 STACK:0 SHARED:512 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:matmul_register.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/matmul_register.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function matmul_register_kernel(float const*, float const*, float*, int, int, int):
+  REG:71 STACK:0 SHARED:4096 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:softmax.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/softmax.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function void softmax_block_kernel<1024>(float const*, float*, int, int):
+  REG:32 STACK:0 SHARED:4096 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void softmax_block_kernel<512>(float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:2048 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void softmax_block_kernel<256>(float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void softmax_block_kernel<128>(float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:512 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void softmax_block_kernel<64>(float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:256 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void softmax_block_kernel<32>(float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:128 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function softmax_online_kernel(float const*, float*, int, int):
+  REG:20 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function softmax_warp_kernel(float const*, float*, int, int):
+  REG:30 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function softmax_naive_kernel(float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:layernorm.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/layernorm.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function void add_layernorm_kernel<1024, 16>(float const*, float const*, float const*, float const*, float*, float*, int, int, float):
+  REG:49 STACK:0 SHARED:128 LOCAL:0 CONSTANT[0]:412 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void add_layernorm_kernel<512, 8>(float const*, float const*, float const*, float const*, float*, float*, int, int, float):
+  REG:32 STACK:0 SHARED:64 LOCAL:0 CONSTANT[0]:412 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void add_layernorm_kernel<256, 4>(float const*, float const*, float const*, float const*, float*, float*, int, int, float):
+  REG:25 STACK:0 SHARED:32 LOCAL:0 CONSTANT[0]:412 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void layernorm_block_kernel<1024, 16>(float const*, float const*, float const*, float*, int, int, float):
+  REG:49 STACK:0 SHARED:128 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void layernorm_block_kernel<512, 8>(float const*, float const*, float const*, float*, int, int, float):
+  REG:32 STACK:0 SHARED:64 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void layernorm_block_kernel<256, 4>(float const*, float const*, float const*, float*, int, int, float):
+  REG:24 STACK:0 SHARED:32 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function layernorm_warp_kernel(float const*, float const*, float const*, float*, int, int, float):
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[2]:8 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function layernorm_naive_kernel(float const*, float const*, float const*, float*, int, int, float):
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:396 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:matmul_fp16.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/matmul_fp16.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function void matmul_tiled_fp16_kernel<32, __half>(__half const*, __half const*, float*, int, int, int):
+  REG:30 STACK:0 SHARED:4096 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void matmul_tiled_fp16_kernel<32, float>(__half const*, __half const*, float*, int, int, int):
+  REG:31 STACK:0 SHARED:4096 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function half_to_float_kernel(__half const*, float*, int):
+  REG:12 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function float_to_half_kernel(float const*, __half*, int):
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:372 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:matmul_wmma.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/matmul_wmma.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function matmul_wmma_kernel(__half const*, __half const*, float*, int, int, int):
+  REG:40 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:388 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:attention.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/attention.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function void attention_fused_kernel<128>(float const*, float const*, float const*, float*, int, int, float, bool, int):
+  REG:36 STACK:0 SHARED:32768 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void attention_fused_kernel<64>(float const*, float const*, float const*, float*, int, int, float, bool, int):
+  REG:32 STACK:0 SHARED:16384 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void attention_fused_kernel<32>(float const*, float const*, float const*, float*, int, int, float, bool, int):
+  REG:32 STACK:0 SHARED:8192 LOCAL:0 CONSTANT[0]:404 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void batched_gemm_kernel<32, false>(float const*, float const*, float*, int, int, int, float, bool, int):
+  REG:32 STACK:0 SHARED:8320 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void batched_gemm_kernel<32, true>(float const*, float const*, float*, int, int, int, float, bool, int):
+  REG:32 STACK:0 SHARED:8320 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0

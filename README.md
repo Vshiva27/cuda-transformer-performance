@@ -9,7 +9,7 @@ GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores
 
 [![CUDA](https://img.shields.io/badge/CUDA-13.0-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
-[![GPU](https://img.shields.io/badge/measured%20on-Tesla%20T4-76B900?logo=nvidia&logoColor=white)](benchmarks/Tesla_T4/)
+[![GPU](https://img.shields.io/badge/measured%20on-Tesla%20T4%20%7C%20A100-76B900?logo=nvidia&logoColor=white)](benchmarks/)
 [![Tests](https://img.shields.io/badge/tests-6%2F6%20passing-2ea44f)](benchmarks/Tesla_T4/tests.txt)
 [![Profiled](https://img.shields.io/badge/profiled-Nsight%20Compute%20%7C%20Systems-555555)](docs/10_nsight_profiling.md)
 [![Baseline](https://img.shields.io/badge/baseline-PyTorch%20%2F%20cuBLAS-EE4C2C?logo=pytorch&logoColor=white)](python/)
@@ -187,6 +187,12 @@ All charts are generated from the measured CSV files by
 [`assets/make_charts.js`](assets/make_charts.js) (`node assets/make_charts.js`), so they always
 match the data.
 
+**Also measured on an A100 (SXM4, 40 GB).** The charts above are from the T4. The same code on
+the A100 reaches 86–88% of DRAM peak on the memory-bound kernels, and GEMM v4 reaches 37% of
+FP32 peak (T4: 27%). cuBLAS gains more (46% → 82%), so the gap to cuBLAS grows. A100 tables
+and the T4 comparison are in [docs/12 §9](docs/12_results.md#9-nvidia-a100-sxm4-40gb), with
+A100 charts in [assets/NVIDIA_A100_SXM4_40GB/](assets/NVIDIA_A100_SXM4_40GB/).
+
 ## Profiler-verified results
 
 | Claim | Evidence (Nsight Compute, T4) |
@@ -199,7 +205,7 @@ match the data.
 | WMMA kernel is starved, not slow | issue slots 5.5% busy; 110 of 124 cycles/instruction waiting on global loads |
 
 Full tables and all 13 hypotheses: [docs/10 §9](docs/10_nsight_profiling.md) ·
-raw reports: [profiling/reports/Tesla_T4/](profiling/reports/Tesla_T4/)
+raw reports: [Tesla_T4](profiling/reports/Tesla_T4/), [A100](profiling/reports/NVIDIA_A100_SXM4_40GB/)
 
 <details>
 <summary><b>More measured results</b></summary>

@@ -1,0 +1,74 @@
+Generating SQLite file profiling/reports/NVIDIA_A100_SXM4_40GB/timeline_all.sqlite from profiling/reports/NVIDIA_A100_SXM4_40GB/timeline_all.nsys-rep
+Processing [profiling/reports/NVIDIA_A100_SXM4_40GB/timeline_all.sqlite] with [/opt/nvidia/nsight-compute/2025.3.1/host/target-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
+ Time (%)  Total Time (ns)  Instances   Avg (ns)     Med (ns)    Min (ns)   Max (ns)   StdDev (ns)                                                  Name                                                
+ --------  ---------------  ---------  -----------  -----------  ---------  ---------  -----------  ----------------------------------------------------------------------------------------------------
+     45.5       47,596,852          5  9,519,370.4  9,519,140.0  9,518,340  9,520,324        888.1  matmul_naive_kernel(const float *, const float *, float *, int, int, int)                           
+     19.5       20,372,296         15  1,358,153.1  1,363,137.0    642,592  2,066,912    596,185.7  void attention_fused_kernel<(int)64>(const float *, const float *, const float *, float *, int, int…
+      8.1        8,468,356         10    846,835.6    845,936.0    746,177    949,248    105,456.2  matmul_coalesced_kernel(const float *, const float *, float *, int, int, int)                       
+      2.6        2,689,090          5    537,818.0    537,856.0    537,568    537,985        171.9  void matmul_tiled_kernel<(int)32>(const float *, const float *, float *, int, int, int)             
+      2.5        2,614,817          5    522,963.4    522,304.0    521,985    526,016      1,711.4  void matmul_tiled_fp16_kernel<(int)32, float>(const __half *, const __half *, float *, int, int, in…
+      2.3        2,401,441          5    480,288.2    478,880.0    478,112    483,840      2,447.1  layernorm_warp_kernel(const float *, const float *, const float *, float *, int, int, float)        
+      2.3        2,385,602         15    159,040.1    151,616.0    130,112    194,368     26,927.7  softmax_online_kernel(const float *, float *, int, int)                                             
+      2.2        2,309,281         10    230,928.1    231,328.0    114,816    346,945    121,881.0  void softmax_block_kernel<(int)256>(const float *, float *, int, int)                               
+      2.2        2,299,616          5    459,923.2    459,584.0    459,328    461,248        765.2  void batched_gemm_kernel<(int)32, (bool)1>(const float *, const float *, float *, int, int, int, fl…
+      2.2        2,272,544         10    227,254.4    229,984.0    146,560    304,672     80,562.2  vector_add_naive_kernel(const float *, const float *, float *, int)                                 
+      2.2        2,269,122          5    453,824.4    453,601.0    452,896    455,488        982.5  void batched_gemm_kernel<(int)32, (bool)0>(const float *, const float *, float *, int, int, int, fl…
+      1.9        2,019,137          5    403,827.4    403,713.0    403,040    404,704        661.0  void add_layernorm_kernel<(int)512, (int)8>(const float *, const float *, const float *, const floa…
+      1.9        1,978,529         10    197,852.9    196,640.5    194,560    202,464      2,987.0  void layernorm_block_kernel<(int)512, (int)8>(const float *, const float *, const float *, float *,…
+      1.8        1,922,304          5    384,460.8    384,544.0    383,872    384,704        336.1  matmul_register_kernel(const float *, const float *, float *, int, int, int)                        
+      1.3        1,326,945         10    132,694.5    133,008.0     98,592    165,536     32,558.5  softmax_warp_kernel(const float *, float *, int, int)                                               
+      0.8          832,640          5    166,528.0    166,368.0    166,176    167,072        364.9  matmul_wmma_kernel(const __half *, const __half *, float *, int, int, int)                          
+      0.8          789,504          5    157,900.8    158,752.0    153,440    159,744      2,573.1  vector_add_grid_stride_kernel(const float *, const float *, float *, int)                           
+      0.0           14,656          2      7,328.0      7,328.0      7,168      7,488        226.3  float_to_half_kernel(const float *, __half *, int)                                                  
+
+Processing [profiling/reports/NVIDIA_A100_SXM4_40GB/timeline_all.sqlite] with [/opt/nvidia/nsight-compute/2025.3.1/host/target-linux-x64/reports/cuda_api_sum.py]... 
+
+ ** CUDA API Summary (cuda_api_sum):
+
+ Time (%)  Total Time (ns)  Num Calls   Avg (ns)     Med (ns)    Min (ns)   Max (ns)   StdDev (ns)               Name             
+ --------  ---------------  ---------  -----------  -----------  --------  ----------  -----------  ------------------------------
+     51.4      125,346,438         18  6,963,691.0  1,298,895.5    11,475  28,660,389  9,803,536.0  cudaMemcpy                    
+     43.3      105,485,055        116    909,353.9    409,501.5    13,709   9,526,401  1,893,428.6  cudaDeviceSynchronize         
+      2.1        5,231,471         30    174,382.4    157,347.0     4,916     347,408     93,878.3  cudaMalloc                    
+      1.4        3,518,942        132     26,658.7      6,179.0     4,039   1,010,495    112,380.0  cudaLaunchKernel              
+      1.1        2,643,114         30     88,103.8     77,818.5     7,286     207,458     53,276.3  cudaFree                      
+      0.4          896,635          1    896,635.0    896,635.0   896,635     896,635          0.0  cudaMemGetInfo                
+      0.3          629,355          9     69,928.3     63,592.0    27,613     129,030     37,127.9  cuLibraryLoadData             
+      0.0           25,809        132        195.5        145.0        98         998        138.2  cuKernelGetName               
+      0.0            7,698         17        452.8        469.0       241         820        144.5  cuLibraryGetKernel            
+      0.0              836          1        836.0        836.0       836         836          0.0  cudaGetDeviceProperties_v12000
+      0.0              517          1        517.0        517.0       517         517          0.0  cuModuleGetLoadingMode        
+
+Processing [profiling/reports/NVIDIA_A100_SXM4_40GB/timeline_all.sqlite] with [/opt/nvidia/nsight-compute/2025.3.1/host/target-linux-x64/reports/nvtx_sum.py]... 
+
+ ** NVTX Range Summary (nvtx_sum):
+
+ Time (%)  Total Time (ns)  Instances   Avg (ns)     Med (ns)    Min (ns)   Max (ns)   StdDev (ns)   Style                         Range                      
+ --------  ---------------  ---------  -----------  -----------  ---------  ---------  -----------  -------  -------------------------------------------------
+     43.5       47,826,136          5  9,565,227.2  9,542,296.0  9,533,884  9,665,512     56,296.8  PushPop  :gemm v1 naive (block 32x8)                      
+      9.5       10,404,701          5  2,080,940.2  2,076,706.0  2,071,566  2,105,548     13,988.2  PushPop  :attention FUSED non-causal                      
+      6.3        6,892,402          5  1,378,480.4  1,376,998.0  1,355,655  1,400,335     21,070.8  PushPop  :attention FUSED causal                          
+      5.6        6,206,001          5  1,241,200.2  1,061,810.0  1,060,620  1,960,405    402,048.0  PushPop  :attention UNFUSED non-causal (QK^T, softmax, PV)
+      4.4        4,803,589          5    960,717.8    960,785.0    958,373    962,797      1,672.6  PushPop  :gemm v2 coalesced (block 32x1)                  
+      3.5        3,840,780          5    768,156.0    760,936.0    759,310    798,622     17,049.8  PushPop  :gemm v2 coalesced (block 32x8)                  
+      3.1        3,388,528          5    677,705.6    658,913.0    656,569    756,652     44,144.3  PushPop  :attention FUSED decode (q_len=1, kv_len=2048)   
+      2.6        2,887,523          5    577,504.6    551,689.0    550,735    681,647     58,220.5  PushPop  :gemm v3 tiled-32                                
+      2.6        2,825,019          5    565,003.8    493,213.0    491,631    847,325    157,854.0  PushPop  :layernorm v2 warp/row                           
+      2.5        2,722,332          5    544,466.4    537,076.0    535,848    566,734     13,193.4  PushPop  :gemm fp16 tiled, fp32 acc                       
+      2.3        2,571,865          5    514,373.0    514,825.0    511,190    518,310      2,737.4  PushPop  :add+layernorm UNFUSED (vector_add, then v3)     
+      2.1        2,309,300          5    461,860.0    164,679.0    161,891  1,640,136    658,707.3  PushPop  :vector_add naive (block 256)                    
+      1.9        2,117,945          5    423,589.0    418,118.0    415,661    436,184      9,194.1  PushPop  :add+layernorm FUSED                             
+      1.9        2,079,847          5    415,969.4    397,674.0    397,028    488,674     40,652.3  PushPop  :gemm v4 register 4x4                            
+      1.7        1,871,964          5    374,392.8    361,173.0    359,968    425,678     28,721.2  PushPop  :softmax v2 block/row 65536x256                  
+      1.0        1,102,859          5    220,571.8    214,717.0    213,751    244,523     13,409.5  PushPop  :layernorm v3 block/row regs                     
+      1.0        1,055,555          5    211,111.0    207,159.0    206,578    226,341      8,547.4  PushPop  :softmax v4 online 16384x1024                    
+      0.9          976,930          5    195,386.0    128,378.0    128,081    450,813    142,900.4  PushPop  :softmax v2 block/row 16384x1024                 
+      0.9          965,491          5    193,098.2    179,907.0    178,262    247,566     30,458.9  PushPop  :gemm v5 WMMA tensor cores                       
+      0.8          910,091          5    182,018.2    177,510.0    176,043    199,199      9,741.9  PushPop  :softmax v3 warp/row 16384x1024                  
+      0.8          857,818          5    171,563.6    171,769.0    169,765    173,287      1,284.3  PushPop  :vector_add grid-stride (864 blocks)             
+      0.7          824,524          5    164,904.8    164,646.0    164,012    166,769      1,091.9  PushPop  :softmax v4 online 65536x256                     
+      0.5          579,242          5    115,848.4    114,768.0    113,245    119,046      2,672.6  PushPop  :softmax v3 warp/row 65536x256                   
+

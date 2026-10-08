@@ -1,0 +1,108 @@
+=================== GPU ===================
+Device 0            : NVIDIA A100-SXM4-40GB
+Compute capability  : 8.0
+CUDA runtime/driver : 13.0 / 13.0
+SMs                 : 108
+Warp size           : 32
+Max threads / block : 1024
+Max threads / SM    : 2048
+Registers / block   : 65536
+Shared mem / block  : 48 KB
+Shared mem / SM     : 164 KB
+L2 cache            : 40960 KB
+Global memory       : 39.49 GiB total, 39.08 GiB free
+Peak mem bandwidth  : 1555.2 GB/s (theoretical)
+Peak FP32 compute   : 19492 GFLOP/s (approx: 64 cores/SM x 108 SMs x 1.41 GHz x 2)
+Ridge point         : 12.5 FLOP/byte
+===========================================
+
+Experiment A: square GEMM speed (A, B in the stated precision; C in FP32)
+(each variant is verified against an exact double-precision product first, n <= 1024)
+
+n = 256
+  variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
+  fp32 v3 tiled-32       |     0.0151 |     2220.1 |            - |     6.17e-07
+  fp32 v4 register       |     0.0503 |      667.6 |        1.00x |     6.17e-07
+  fp16 tiled, fp32 acc   |     0.0147 |     2281.9 |        3.42x |     5.68e-07
+  fp16 tiled, fp16 acc   |     0.0137 |     2456.4 |        3.68x |     6.16e-03
+  v5 WMMA, fp32 acc      |     0.0074 |     4526.0 |        6.78x |     1.33e-06
+
+n = 512
+  variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
+  fp32 v3 tiled-32       |     0.0678 |     3959.9 |            - |     8.41e-07
+  fp32 v4 register       |     0.0980 |     2738.7 |        1.00x |     8.41e-07
+  fp16 tiled, fp32 acc   |     0.0659 |     4074.4 |        1.49x |     7.98e-07
+  fp16 tiled, fp16 acc   |     0.0604 |     4441.6 |        1.62x |     6.74e-03
+  v5 WMMA, fp32 acc      |     0.0229 |    11713.3 |        4.28x |     1.91e-06
+
+n = 1024
+  variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
+  fp32 v3 tiled-32       |     0.4181 |     5135.8 |            - |     1.49e-06
+  fp32 v4 register       |     0.3007 |     7140.9 |        1.00x |     1.49e-06
+  fp16 tiled, fp32 acc   |     0.4061 |     5287.6 |        0.74x |     1.48e-06
+  fp16 tiled, fp16 acc   |     0.3695 |     5812.5 |        0.81x |     1.06e-02
+  v5 WMMA, fp32 acc      |     0.1304 |    16474.1 |        2.31x |     2.88e-06
+
+n = 2048
+  variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
+  fp32 v3 tiled-32       |     3.1776 |     5406.6 |            - |            -
+  fp32 v4 register       |     2.1148 |     8123.8 |        1.00x |            -
+  fp16 tiled, fp32 acc   |     3.0783 |     5580.9 |        0.69x |            -
+  fp16 tiled, fp16 acc   |     2.8158 |     6101.2 |        0.75x |            -
+  v5 WMMA, fp32 acc      |     1.0272 |    16725.4 |        2.06x |            -
+
+n = 4096
+  variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
+  fp32 v3 tiled-32       |    25.7779 |     5331.7 |            - |            -
+  fp32 v4 register       |    16.5681 |     8295.4 |        1.00x |            -
+  fp16 tiled, fp32 acc   |    26.3059 |     5224.6 |        0.63x |            -
+  fp16 tiled, fp16 acc   |    23.7635 |     5783.6 |        0.70x |            -
+  v5 WMMA, fp32 acc      |     7.7756 |    17675.6 |        2.13x |            -
+
+
+Experiment B: error vs K (M = N = 64, inputs uniform in [-1, 1])
+error = max |out - exact| / max |exact|
+  total = vs exact product of original FP32 inputs;  arith = vs exact product of the FP16-rounded inputs
+
+       K |      fp32 v3 tiled-32 |      fp32 v4 register |  fp16 tiled, fp32 acc |  fp16 tiled, fp16 acc |     v5 WMMA, fp32 acc |
+         |      total      arith |      total      arith |      total      arith |      total      arith |      total      arith |
+      64 |   2.78e-07   2.78e-07 |   2.78e-07   2.78e-07 |   2.59e-04   3.44e-07 |   2.31e-03   2.34e-03 |   2.59e-04   2.83e-07 |
+     256 |   5.06e-07   5.06e-07 |   5.06e-07   5.06e-07 |   2.34e-04   5.82e-07 |   3.67e-03   3.59e-03 |   2.34e-04   6.62e-07 |
+    1024 |   8.43e-07   8.43e-07 |   8.43e-07   8.43e-07 |   2.87e-04   1.27e-06 |   7.67e-03   7.63e-03 |   2.86e-04   2.47e-06 |
+    4096 |   2.65e-06   2.65e-06 |   2.65e-06   2.65e-06 |   2.57e-04   2.36e-06 |   1.58e-02   1.58e-02 |   2.57e-04   9.19e-06 |
+   16384 |   5.76e-06   5.76e-06 |   5.76e-06   5.76e-06 |   2.97e-04   4.35e-06 |   3.63e-02   3.62e-02 |   3.00e-04   2.95e-05 |
+
+
+Experiment C: overflow. Inputs in [0, 8], K = 8192; FP16 maximum = 65504
+  largest exact output: 133839
+  fp32 v3 tiled-32       :   0 of 256 outputs are inf/NaN, scaled error of the rest 4.49e-06
+  fp32 v4 register       :   0 of 256 outputs are inf/NaN, scaled error of the rest 4.49e-06
+  fp16 tiled, fp32 acc   :   0 of 256 outputs are inf/NaN, scaled error of the rest 1.10e-05
+  fp16 tiled, fp16 acc   : 256 of 256 outputs are inf/NaN, scaled error of the rest 0.00e+00
+  v5 WMMA, fp32 acc      :   0 of 256 outputs are inf/NaN, scaled error of the rest 9.88e-05
+
+
+Experiment D: Transformer GEMMs, prefill of 512 tokens (GPT-2 small)
+
+QKV projection (512 x 2304 x 768)
+  fp32 v3 tiled-32       |     0.3464 ms |     5231.4 GFLOP/s
+  fp32 v4 register       |     0.2264 ms |     8003.8 GFLOP/s
+  fp16 tiled, fp32 acc   |     0.3363 ms |     5388.2 GFLOP/s
+  fp16 tiled, fp16 acc   |     0.3060 ms |     5921.1 GFLOP/s
+  v5 WMMA, fp32 acc      |     0.1080 ms |    16785.0 GFLOP/s
+
+MLP up (512 x 3072 x 768)
+  fp32 v3 tiled-32       |     0.4685 ms |     5156.5 GFLOP/s
+  fp32 v4 register       |     0.3393 ms |     7120.5 GFLOP/s
+  fp16 tiled, fp32 acc   |     0.4540 ms |     5321.9 GFLOP/s
+  fp16 tiled, fp16 acc   |     0.4133 ms |     5844.8 GFLOP/s
+  v5 WMMA, fp32 acc      |     0.1631 ms |    14814.1 GFLOP/s
+
+MLP down (512 x 768 x 3072)
+  fp32 v3 tiled-32       |     0.5089 ms |     4746.9 GFLOP/s
+  fp32 v4 register       |     0.5704 ms |     4235.4 GFLOP/s
+  fp16 tiled, fp32 acc   |     0.4940 ms |     4890.9 GFLOP/s
+  fp16 tiled, fp16 acc   |     0.4505 ms |     5363.3 GFLOP/s
+  v5 WMMA, fp32 acc      |     0.1614 ms |    14966.4 GFLOP/s
+
+(Decode shapes with M = 1 are not run with WMMA: it needs M to be a multiple of 16. See docs/08.)

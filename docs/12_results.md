@@ -6,7 +6,7 @@
 > marked † and explained. Where a measurement contradicted a prediction in the earlier docs,
 > that is stated too.
 
-> **Other GPUs:** this page covers the Tesla T4. Results from other GPUs (e.g. A100, H100) go into
+> **Other GPUs:** §1–§8 cover the Tesla T4; the A100 is in [§9](#9-nvidia-a100-sxm4-40gb). Results from other GPUs go into
 > their own `benchmarks/<GPU>/` and `profiling/reports/<GPU>/` folders and get their own section
 > here, with the same tables. Compare GPUs in % of peak, never within one table. Caveats:
 > [09 §21](09_benchmarking.md).
@@ -343,3 +343,71 @@ Details and all metric values: [10_nsight_profiling.md §9](10_nsight_profiling.
 
 **Bonus confirmation:** DRAM byte counters show fusion moves **22.07 → 18.11 bytes per element**,
 a ratio of 1.22, matching the measured 1.21× fusion speedup.
+
+---
+
+## 9. NVIDIA A100-SXM4-40GB
+
+> Raw data: [`benchmarks/NVIDIA_A100_SXM4_40GB/`](../benchmarks/NVIDIA_A100_SXM4_40GB/) (incl.
+> generated `summary.md`), profiler reports:
+> [`profiling/reports/NVIDIA_A100_SXM4_40GB/`](../profiling/reports/NVIDIA_A100_SXM4_40GB/),
+> charts: [`assets/NVIDIA_A100_SXM4_40GB/`](../assets/NVIDIA_A100_SXM4_40GB/). Same code, same
+> benchmarks as the T4 sections above. 6/6 tests pass.
+
+| Field | Value |
+|---|---|
+| GPU | NVIDIA A100-SXM4-40GB (Google Colab), **108 SMs** (MIG disabled: full GPU), 39.49 GiB, 40 MB L2 |
+| Compute capability | 8.0 (Ampere) |
+| Peak (as reported by the benchmarks) | 1,555.2 GB/s DRAM, 19,492 GFLOP/s FP32 (CUDA cores, 1.41 GHz) |
+| Driver / CUDA | 580.82.07 / CUDA 13.0 (nvcc 13.0.88), PyTorch 2.11.0+cu130 |
+| TF32 | off for all FP32 rows (measured separately: cuBLAS TF32 1024³ = 67,509 GFLOP/s) |
+
+### T4 vs A100, in % of each GPU's peak
+
+| Kernel | Size | T4 | A100 |
+|---|---|---|---|
+| Vector add (naive) | n = 2²⁶ | 82% (262.7 GB/s) | **88%** (1,368.9 GB/s) |
+| Softmax v2 block/row | 12288×1024 | 76% | **80%** (1,249.1 GB/s) |
+| LayerNorm v3 | 8192×4096 | 72% | **86%** (1,334.4 GB/s) |
+| GEMM v4 register 4×4 | 1024³ | 27% (2,236 GFLOP/s) | **37%** (7,144 GFLOP/s) |
+| GEMM v4 register 4×4 | 4096³ | – | **43%** (8,297 GFLOP/s) |
+| cuBLAS FP32 | 1024³ | 46% (3,730 GFLOP/s) | **82%** (15,911 GFLOP/s) |
+| GEMM v4 as a fraction of cuBLAS FP32 | 1024³ | 0.60× | 0.45× |
+
+### Summary table (A100)
+
+| Operation | Size | Precision | CPU (1 thread) | PyTorch | CUDA basic | CUDA optimized | Basic → optimized |
+|---|---|---|---|---|---|---|---|
+| Vector add | n = 2²⁶ | FP32 | 65.02 ms | – | 0.588 ms (naive) | – (memory-bound: 88% of peak already) | – |
+| GEMM | 1024³ | FP32 | 319.58 ms | 0.135 ms (cuBLAS) | 7.420 ms (v1) | 0.301 ms (v4) | **24.7×** |
+| GEMM | 1024³ | FP16 in / FP32 acc | – | 0.023 ms (cuBLAS) | 0.406 ms (tiled, CUDA cores) | 0.130 ms (v5 WMMA) | 3.1× |
+| Softmax | 12288×1024 | FP32 | 273.49 ms | 0.080 ms | 0.824 ms (v1) | 0.081 ms (v2) | **10.2×** |
+| LayerNorm | 8192×4096 | FP32 | 135.14 ms | 0.295 ms | 3.563 ms (v1) | 0.201 ms (v3) | **17.7×** |
+| Add + LayerNorm | 8192×4096 | FP32 | – | 0.588 ms (2 kernels) | 0.500 ms (ours, 2 kernels) | 0.406 ms (fused) | 1.23× |
+| Attention (causal) | 12×2048×64 | FP32 | – | – | 3.270 ms (unfused) | 3.491 ms (fused) | 0.94× (fused is slower) |
+| Attention decode | 1 × 2048 ctx | FP32 | – | – | 3.503 ms (recompute) | 0.507 ms (KV cache) | **6.9×** |
+
+### What changed compared with the T4
+
+1. **Memory-bound kernels get closer to peak** (82–88% vs 72–82%). PyTorch now matches our
+   softmax (0.080 vs 0.081 ms) but is still behind our LayerNorm (0.295 vs 0.201 ms).
+2. **The gap to cuBLAS grew**, as predicted in [09 §21](09_benchmarking.md) item 4: cuBLAS FP32
+   goes from 46% to 82% of peak, our v4 only from 27% to 37%, so v4 falls from 0.60× to 0.45×
+   of cuBLAS. For FP16, cuBLAS (94.7 TFLOP/s) is **5.7×** faster than our WMMA kernel
+   (16.5 TFLOP/s); the T4 ratio was 10.9×. WMMA vs FP32 v4 improves from 1.49× to 2.31×.
+3. **Large L2 shows up.** Softmax 4096×512 (8 MB in + 8 MB out) reaches 1,678.7 GB/s =
+   **108% of DRAM peak**, so that row measures L2, not DRAM (see 09 §21 item 2). Only rows
+   larger than the 40 MB L2 are DRAM-bandwidth claims: vector add 2²⁶, softmax 12288×1024,
+   LayerNorm 8192×4096.
+4. **The softmax ranking shifts with the L2.** At 4096×1024 (32 MB, fits in L2) warp/row and
+   block/row are close (1,095 vs 1,143 GB/s). At 12288×1024 (96 MB) warp/row drops to 794 GB/s
+   while block/row reaches 1,249. This is consistent with the T4 explanation (§8, question 2:
+   warp/row re-reads x from DRAM once its rows in flight exceed L2), but it was not separately
+   verified with DRAM counters on the A100.
+5. **Fused causal attention is no longer faster** (0.94× vs 1.21× on the T4). Non-causal fused
+   attention was already slower on both GPUs (A100 seq 2048: 7.81 vs 4.08 ms unfused).
+6. **The KV-cache decode step did not get faster:** 0.507 ms on the A100 vs 0.503 ms on the T4
+   at 2,048 context, while recomputing got 4.3× faster (15.09 → 3.50 ms). So the speedup from
+   caching drops from 30× to 6.9×. One query row gives the decode kernel little parallel work,
+   so a GPU with more SMs and bandwidth does not help it; that is the likely reason, not yet
+   checked in the profiler.

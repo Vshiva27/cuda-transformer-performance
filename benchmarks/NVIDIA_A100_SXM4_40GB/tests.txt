@@ -1,0 +1,18 @@
+Internal ctest changing into directory: /content/cuda-performance-project/build
+Test project /content/cuda-performance-project/build
+    Start 1: test_vector_add
+1/6 Test #1: test_vector_add ..................   Passed    0.61 sec
+    Start 2: test_matmul
+2/6 Test #2: test_matmul ......................   Passed    0.48 sec
+    Start 3: test_softmax
+3/6 Test #3: test_softmax .....................   Passed    0.54 sec
+    Start 4: test_layernorm
+4/6 Test #4: test_layernorm ...................   Passed    0.46 sec
+    Start 5: test_precision
+5/6 Test #5: test_precision ...................   Passed    0.43 sec
+    Start 6: test_attention
+6/6 Test #6: test_attention ...................   Passed    0.48 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =   3.03 sec
