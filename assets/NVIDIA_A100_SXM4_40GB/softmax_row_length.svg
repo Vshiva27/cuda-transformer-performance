@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="380" viewBox="0 0 800 380" role="img" aria-labelledby="t d">
   <title id="t">Softmax: the best design depends on the row length</title>
-  <desc id="d">Columns 32..65536. Block per row: 72.5799, 395.033, 1151.27, 1164.05, 613.346, 438.148 GB/s. Warp per row: 724.355, 1279.38, 810.337, 554.685, 274.899, 85.0123 GB/s.</desc>
+  <desc id="d">Columns 32..65536. Block per row: 56.4042, 440.875, 1240.62, 1166.12, 615.651, 437.782 GB/s. Warp per row: 660.812, 1286.28, 825.65, 554.099, 276.115, 85.0013 GB/s.</desc>
   <style>
     .title { font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     .sub   { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
@@ -59,20 +59,20 @@
   <text class="tick" x="530.7" y="344" text-anchor="middle">16K</text>
   <text class="tick" x="630" y="344" text-anchor="middle">64K</text>
   <text class="tick" x="630" y="362" text-anchor="end">columns per row</text>
-  <polyline class="line l1" points="84,314.5 232.9,272.4 332.2,173.6 431.5,171.9 530.7,243.9 630,266.7"/>
-  <circle class="s1 ring" cx="84" cy="314.5" r="4.5"/>
-  <circle class="s1 ring" cx="232.9" cy="272.4" r="4.5"/>
-  <circle class="s1 ring" cx="332.2" cy="173.6" r="4.5"/>
-  <circle class="s1 ring" cx="431.5" cy="171.9" r="4.5"/>
-  <circle class="s1 ring" cx="530.7" cy="243.9" r="4.5"/>
-  <circle class="s1 ring" cx="630" cy="266.7" r="4.5"/>
-  <polyline class="line l3" points="84,229.4 232.9,156.8 332.2,218.1 431.5,251.5 530.7,288.1 630,312.9"/>
-  <circle class="s3 ring" cx="84" cy="229.4" r="4.5"/>
-  <circle class="s3 ring" cx="232.9" cy="156.8" r="4.5"/>
-  <circle class="s3 ring" cx="332.2" cy="218.1" r="4.5"/>
-  <circle class="s3 ring" cx="431.5" cy="251.5" r="4.5"/>
-  <circle class="s3 ring" cx="530.7" cy="288.1" r="4.5"/>
+  <polyline class="line l1" points="84,316.6 232.9,266.4 332.2,161.9 431.5,171.6 530.7,243.6 630,266.8"/>
+  <circle class="s1 ring" cx="84" cy="316.6" r="4.5"/>
+  <circle class="s1 ring" cx="232.9" cy="266.4" r="4.5"/>
+  <circle class="s1 ring" cx="332.2" cy="161.9" r="4.5"/>
+  <circle class="s1 ring" cx="431.5" cy="171.6" r="4.5"/>
+  <circle class="s1 ring" cx="530.7" cy="243.6" r="4.5"/>
+  <circle class="s1 ring" cx="630" cy="266.8" r="4.5"/>
+  <polyline class="line l3" points="84,237.7 232.9,155.9 332.2,216.1 431.5,251.6 530.7,287.9 630,312.9"/>
+  <circle class="s3 ring" cx="84" cy="237.7" r="4.5"/>
+  <circle class="s3 ring" cx="232.9" cy="155.9" r="4.5"/>
+  <circle class="s3 ring" cx="332.2" cy="216.1" r="4.5"/>
+  <circle class="s3 ring" cx="431.5" cy="251.6" r="4.5"/>
+  <circle class="s3 ring" cx="530.7" cy="287.9" r="4.5"/>
   <circle class="s3 ring" cx="630" cy="312.9" r="4.5"/>
-  <text class="label" x="642" y="271.2">block per row</text>
+  <text class="label" x="642" y="271.3">block per row</text>
   <text class="label" x="642" y="317.4">warp per row</text>
 </svg>

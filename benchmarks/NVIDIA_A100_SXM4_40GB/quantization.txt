@@ -22,39 +22,45 @@ so that row may be measuring L2 rather than DRAM bandwidth.
 
 GPT-2 small QKV projection  (N=2304 outputs, K=768 inputs)
   weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
-  fp32 weights                 |      7.08 |     0.0057 |   1244.2* |   80.0% |    1.00x
-  fp16 weights                 |      3.54 |     0.0049 |    721.7* |   46.4% |    1.16x
-  int8 weights, per-row scale  |      1.78 |     0.0055 |    326.9* |   21.0% |    1.04x
+  fp32 weights                 |      7.08 |     0.0057 |   1236.4* |   79.5% |    1.00x
+  fp16 weights                 |      3.54 |     0.0050 |    713.6* |   45.9% |    1.15x
+  int8 weights, per-row scale  |      1.78 |     0.0056 |    322.1* |   20.7% |    1.03x
+  int8 weights, 4 rows/warp    |      1.78 |     0.0055 |    323.6* |   20.8% |    1.04x
 
 GPT-2 small MLP up  (N=3072 outputs, K=768 inputs)
   weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
-  fp32 weights                 |      9.44 |     0.0063 |   1504.6* |   96.7% |    1.00x
-  fp16 weights                 |      4.72 |     0.0052 |    902.9* |   58.1% |    1.20x
-  int8 weights, per-row scale  |      2.37 |     0.0062 |    386.6* |   24.9% |    1.02x
+  fp32 weights                 |      9.44 |     0.0064 |   1484.1* |   95.4% |    1.00x
+  fp16 weights                 |      4.72 |     0.0054 |    874.7* |   56.2% |    1.18x
+  int8 weights, per-row scale  |      2.37 |     0.0062 |    382.4* |   24.6% |    1.02x
+  int8 weights, 4 rows/warp    |      2.37 |     0.0057 |    416.6* |   26.8% |    1.11x
 
 GPT-2 small MLP down  (N=768 outputs, K=3072 inputs)
   weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
-  fp32 weights                 |      9.44 |     0.0067 |   1400.8* |   90.1% |    1.00x
-  fp16 weights                 |      4.72 |     0.0062 |    767.3* |   49.3% |    1.09x
-  int8 weights, per-row scale  |      2.36 |     0.0062 |    384.4* |   24.7% |    1.09x
+  fp32 weights                 |      9.44 |     0.0069 |   1374.7* |   88.4% |    1.00x
+  fp16 weights                 |      4.72 |     0.0062 |    758.5* |   48.8% |    1.10x
+  int8 weights, per-row scale  |      2.36 |     0.0062 |    381.6* |   24.5% |    1.10x
+  int8 weights, 4 rows/warp    |      2.36 |     0.0096 |    248.3* |   16.0% |    0.72x
 
 7B-class QKV projection  (N=12288 outputs, K=4096 inputs)
   weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
-  fp32 weights                 |    201.33 |     0.1445 |   1393.7  |   89.6% |    1.00x
+  fp32 weights                 |    201.33 |     0.1445 |   1393.5  |   89.6% |    1.00x
   fp16 weights                 |    100.66 |     0.0751 |   1340.5  |   86.2% |    1.92x
-  int8 weights, per-row scale  |     50.38 |     0.0534 |    945.6  |   60.8% |    2.71x
+  int8 weights, per-row scale  |     50.38 |     0.0534 |    944.5  |   60.7% |    2.71x
+  int8 weights, 4 rows/warp    |     50.38 |     0.0441 |   1143.0  |   73.5% |    3.27x
 
 7B-class MLP up  (N=11008 outputs, K=4096 inputs)
   weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
-  fp32 weights                 |    180.36 |     0.1345 |   1341.3  |   86.2% |    1.00x
-  fp16 weights                 |     90.18 |     0.0700 |   1289.9  |   82.9% |    1.92x
-  int8 weights, per-row scale  |     45.13 |     0.0606 |    745.5  |   47.9% |    2.22x
+  fp32 weights                 |    180.36 |     0.1355 |   1331.9  |   85.6% |    1.00x
+  fp16 weights                 |     90.18 |     0.0702 |   1286.1  |   82.7% |    1.93x
+  int8 weights, per-row scale  |     45.13 |     0.0616 |    733.1  |   47.1% |    2.20x
+  int8 weights, 4 rows/warp    |     45.13 |     0.0454 |    996.3  |   64.1% |    2.99x
 
 7B-class MLP down  (N=4096 outputs, K=11008 inputs)
   weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
-  fp32 weights                 |    180.36 |     0.1310 |   1376.9  |   88.5% |    1.00x
+  fp32 weights                 |    180.36 |     0.1309 |   1377.8  |   88.6% |    1.00x
   fp16 weights                 |     90.18 |     0.0695 |   1299.0  |   83.5% |    1.89x
-  int8 weights, per-row scale  |     45.11 |     0.0631 |    715.3  |   46.0% |    2.08x
+  int8 weights, per-row scale  |     45.11 |     0.0635 |    710.7  |   45.7% |    2.06x
+  int8 weights, 4 rows/warp    |     45.11 |     0.0611 |    739.3  |   47.5% |    2.14x
 
 
 Experiment B: error caused by storing W in fewer bits (N = K = 4096, W and x uniform in [-1, 1])
@@ -72,3 +78,31 @@ max = max |err| / max |exact|
 One outlier sets the scale of everything that shares it: with a per-tensor scale every
 weight in the matrix gets a step of 50/127 ~= 0.39; with per-row scales only the rows
 that contain an outlier do.
+
+
+Experiment C: INT8 weights, rows per warp (x read once per R rows), 7B-class shapes
+R = 1 is the multi-row kernel with one row; 'one row/warp' is the original kernel (Experiment A)
+
+7B-class QKV projection  (N=12288, K=4096)
+  rows per warp    |         ms |      GB/s |  % peak | vs one row/warp
+  one row/warp     |     0.0683 |     738.8 |   47.5% |         1.00x
+  R = 1            |     0.0679 |     742.6 |   47.7% |         1.01x
+  R = 2            |     0.0463 |    1088.5 |   70.0% |         1.47x
+  R = 4            |     0.0473 |    1065.4 |   68.5% |         1.44x
+  R = 8            |     0.0537 |     940.2 |   60.5% |         1.27x
+
+7B-class MLP up  (N=11008, K=4096)
+  rows per warp    |         ms |      GB/s |  % peak | vs one row/warp
+  one row/warp     |     0.0617 |     731.9 |   47.1% |         1.00x
+  R = 1            |     0.0601 |     751.6 |   48.3% |         1.03x
+  R = 2            |     0.0419 |    1079.6 |   69.4% |         1.48x
+  R = 4            |     0.0455 |     993.1 |   63.9% |         1.36x
+  R = 8            |     0.0520 |     868.4 |   55.8% |         1.19x
+
+7B-class MLP down  (N=4096, K=11008)
+  rows per warp    |         ms |      GB/s |  % peak | vs one row/warp
+  one row/warp     |     0.0636 |     710.0 |   45.7% |         1.00x
+  R = 1            |     0.0637 |     709.3 |   45.6% |         1.00x
+  R = 2            |     0.0479 |     943.3 |   60.7% |         1.33x
+  R = 4            |     0.0611 |     739.3 |   47.5% |         1.04x
+  R = 8            |     0.0894 |     505.1 |   32.5% |         0.71x

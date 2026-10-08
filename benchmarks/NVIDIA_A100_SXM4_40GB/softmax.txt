@@ -18,65 +18,65 @@ Ridge point         : 12.5 FLOP/byte
 
 Experiment A: softmax over rows, FP32 (shapes shared with python/benchmark.py)
 
-1024 x 128   CPU (double-precision reference): 2.738 ms
+1024 x 128   CPU (double-precision reference): 2.717 ms
   version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row    |     0.1034 |      10.1 |    0.7% |    1.00x |    26.5x
-  v2 block/row     |     0.0075 |     140.1 |    9.0% |   13.81x |   365.8x
-  v3 warp/row      |     0.0041 |     254.4 |   16.4% |   25.08x |   664.4x
-  v4 warp online   |     0.0051 |     204.0 |   13.1% |   20.11x |   532.7x
+  v1 thread/row    |     0.1032 |      10.2 |    0.7% |    1.00x |    26.3x
+  v2 block/row     |     0.0074 |     141.5 |    9.1% |   13.92x |   366.8x
+  v3 warp/row      |     0.0043 |     245.9 |   15.8% |   24.19x |   637.1x
+  v4 warp online   |     0.0050 |     208.1 |   13.4% |   20.48x |   539.3x
 
-4096 x 512   CPU (double-precision reference): 42.827 ms
+4096 x 512   CPU (double-precision reference): 43.090 ms
   version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row    |     0.4099 |      40.9 |    2.6% |    1.00x |   104.5x
-  v2 block/row     |     0.0223 |     753.8 |   48.5% |   18.42x |  1924.2x
-  v3 warp/row      |     0.0102 |    1645.0 |  105.8% |   40.19x |  4199.1x
-  v4 warp online   |     0.0154 |    1089.0 |   70.0% |   26.61x |  2779.9x
+  v1 thread/row    |     0.4089 |      41.0 |    2.6% |    1.00x |   105.4x
+  v2 block/row     |     0.0221 |     759.2 |   48.8% |   18.50x |  1949.9x
+  v3 warp/row      |     0.0101 |    1660.8 |  106.8% |   40.47x |  4265.5x
+  v4 warp online   |     0.0152 |    1107.4 |   71.2% |   26.99x |  2844.2x
 
-4096 x 1024   CPU (double-precision reference): 85.471 ms
+4096 x 1024   CPU (double-precision reference): 86.413 ms
   version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row    |     0.8167 |      41.1 |    2.6% |    1.00x |   104.7x
-  v2 block/row     |     0.0294 |    1141.3 |   73.4% |   27.78x |  2907.3x
-  v3 warp/row      |     0.0303 |    1108.9 |   71.3% |   26.99x |  2824.6x
-  v4 warp online   |     0.0455 |     737.5 |   47.4% |   17.95x |  1878.6x
+  v1 thread/row    |     0.8158 |      41.1 |    2.6% |    1.00x |   105.9x
+  v2 block/row     |     0.0293 |    1147.1 |   73.8% |   27.89x |  2954.2x
+  v3 warp/row      |     0.0290 |    1156.7 |   74.4% |   28.12x |  2978.7x
+  v4 warp online   |     0.0455 |     737.6 |   47.4% |   17.93x |  1899.6x
 
-12288 x 1024   CPU (double-precision reference): 256.337 ms
+12288 x 1024   CPU (double-precision reference): 256.881 ms
   version          |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row    |     0.8223 |     122.4 |    7.9% |    1.00x |   311.7x
-  v2 block/row     |     0.0804 |    1251.6 |   80.5% |   10.22x |  3187.3x
-  v3 warp/row      |     0.1270 |     792.4 |   51.0% |    6.47x |  2017.8x
-  v4 warp online   |     0.1379 |     729.9 |   46.9% |    5.96x |  1858.7x
+  v1 thread/row    |     0.8250 |     122.0 |    7.8% |    1.00x |   311.4x
+  v2 block/row     |     0.0803 |    1253.2 |   80.6% |   10.27x |  3198.1x
+  v3 warp/row      |     0.1271 |     792.1 |   50.9% |    6.49x |  2021.4x
+  v4 warp online   |     0.1379 |     730.2 |   47.0% |    5.98x |  1863.5x
 
 
 Experiment B: row length sensitivity (~16M elements each), GB/s per version
 
       rows x cols     |   v1 thread/row |    v2 block/row |     v3 warp/row |  v4 warp online |
-    524288 x 32       |           157.3 |            72.6 |           724.4 |           469.7 |
-     65536 x 256      |           108.5 |           395.0 |          1279.4 |           872.9 |
-     16384 x 1024     |           112.9 |          1151.3 |           810.3 |           683.2 |
-      4096 x 4096     |            31.9 |          1164.0 |           554.7 |           576.1 |
-      1024 x 16384    |            10.3 |           613.3 |           274.9 |           205.5 |
-       256 x 65536    |             2.6 |           438.1 |            85.0 |            58.2 |
-       334 x 50257    |             3.2 |           481.4 |           108.2 |            75.1 |
+    524288 x 32       |           134.8 |            56.4 |           660.8 |           421.5 |
+     65536 x 256      |           116.9 |           440.9 |          1286.3 |           948.1 |
+     16384 x 1024     |           121.1 |          1240.6 |           825.7 |           712.0 |
+      4096 x 4096     |            31.5 |          1166.1 |           554.1 |           575.9 |
+      1024 x 16384    |            10.3 |           615.7 |           276.1 |           206.0 |
+       256 x 65536    |             2.6 |           437.8 |            85.0 |            58.3 |
+       334 x 50257    |             3.2 |           481.6 |           108.2 |            75.3 |
          1 x 50257    |             0.1 |             6.9 |             1.0 |             0.6 |
 
 
 Experiment C: v2 block size, 4096 x 1024
 
   block size |         ms |      GB/s
-          32 |     0.0339 |     991.2
-          64 |     0.0268 |    1253.6
-         128 |     0.0272 |    1231.9
-         256 |     0.0294 |    1140.2
-         512 |     0.0522 |     643.3
-        1024 |     0.1055 |     318.0
+          32 |     0.0335 |    1002.7
+          64 |     0.0270 |    1244.0
+         128 |     0.0273 |    1230.0
+         256 |     0.0292 |    1149.8
+         512 |     0.0520 |     644.8
+        1024 |     0.1051 |     319.1
 
 
 Experiment C: v2 block size, 256 x 65536
 
   block size |         ms |      GB/s
-          32 |     1.4870 |      90.3
-          64 |     0.8010 |     167.6
-         128 |     0.4671 |     287.3
-         256 |     0.3065 |     437.9
-         512 |     0.2400 |     559.2
-        1024 |     0.2186 |     614.0
+          32 |     1.4845 |      90.4
+          64 |     0.7979 |     168.2
+         128 |     0.4677 |     286.9
+         256 |     0.3060 |     438.6
+         512 |     0.2398 |     559.7
+        1024 |     0.2203 |     609.2

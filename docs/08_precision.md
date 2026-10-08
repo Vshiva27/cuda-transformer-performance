@@ -438,15 +438,15 @@ holds for every output. On a 64 × 1000 matrix with one outlier (50), the relati
 **Measured on an A100** ([12_results §9.1](12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9)),
 7B-class shapes, weights larger than L2:
 
-- **FP16 matched the prediction:** 1.89–1.92× faster than FP32, at 83–86% of peak bandwidth.
-- **INT8 missed it:** 2.1–2.7× faster than FP32 instead of ~4×, and only 1.10–1.41× faster than
+- **FP16 matched the prediction:** 1.89–1.93× faster than FP32, at 83–86% of peak bandwidth.
+- **INT8 missed it:** 2.1–2.7× faster than FP32 instead of ~4×, and only 1.09–1.41× faster than
   FP16. INT8 reaches just 46–61% of DRAM peak. **Nsight Compute shows why:** DRAM reads are
-  exactly 1 byte per weight, but every weight also needs 4 bytes of x, read through L1 by each
-  warp. That x traffic does not shrink with the weights, so L1/TEX throughput rises from 21%
-  (FP32) to 51% (FP16) to 93% (INT8): the bottleneck moved from DRAM to L1. The fix is to reuse
-  each x value across several output rows per warp: `gemv_int8_multirow` (below, not measured
-  yet).
-- **GPT-2-small shapes** (weights fit in L2) take 5–7 µs in every format; INT8 gains ≤ 1.09×.
+  exactly 1 byte per weight, but every weight also needs its FP32 x value, read through L1 by
+  each warp (and, for FP16/INT8, through half-used 32-byte sectors: 8 bytes of sectors per
+  weight). That x traffic does not shrink with the weights, so L1/TEX throughput rises from 21%
+  (FP32) to 51% (FP16) to 94% (INT8): the bottleneck moved from DRAM to L1. The fix is to reuse
+  each x value across several output rows per warp: `gemv_int8_multirow` (below).
+- **GPT-2-small shapes** (weights fit in L2) take 5–7 µs in every format; INT8 gains ≤ 1.10×.
 - **Accuracy:** INT8 adds 0.4% relative RMS error on uniform weights (FP16: 0.02%). With 16
   outliers, per-tensor scales give 20% error; per-row scales give 1.5%.
 
@@ -464,11 +464,26 @@ row. `gemv_multirow_kernel<WT, VECTORIZED, ROWS>` gives each warp ROWS consecuti
 3. multiply it with all ROWS weight chunks, one accumulator per row;
 4. reduce each accumulator with `warp_reduce_sum` and apply that row's scale.
 
-x's L1 traffic per weight drops from 4 bytes to 4/ROWS bytes. The cost is fewer warps
-(N / ROWS) and more registers per thread, so the best ROWS has to be measured:
-`bench_quantization` Experiment C sweeps ROWS = 1, 2, 4, 8 on the 7B-class shapes, and
-`profile_targets quantization` profiles ROWS = 4 next to the one-row kernels. The original
-one-row kernel is kept unchanged, as the baseline. Results: not measured yet.
+x's L1 traffic per weight drops by a factor of ROWS. The cost is fewer warps (N / ROWS) and
+more registers per thread, so the best ROWS has to be measured: `bench_quantization`
+Experiment C sweeps ROWS = 1, 2, 4, 8 on the 7B-class shapes, and `profile_targets
+quantization` profiles ROWS = 4 next to the one-row kernels. The original one-row kernel is kept
+unchanged, as the baseline.
+
+**Measured on the A100** ([12_results §9.2](12_results.md#92-reading-x-once-for-several-rows-gemv_int8_multirow)):
+
+- **ROWS = 2 is best on every shape:** INT8 becomes **3.23×** (MLP up) and 2.73× (MLP down)
+  faster than FP32 weights, and 1.68× / 1.45× faster than FP16, up from 2.20× / 2.06×.
+- **The fix worked as designed:** at ROWS = 4, L1 global-load sectors fell from 12.69 M to
+  4.24 M (model: 4.23 M), L1/TEX throughput from 94% to 42%, and DRAM throughput rose from 49%
+  to 66%.
+- **More rows hurt:** ROWS = 4 leaves 344 blocks, 0.64 of one wave at 48 registers per thread,
+  and 34% occupancy, too few loads in flight to keep DRAM busy. ROWS = 8 on the 4096-row MLP down
+  launches 64 blocks for 108 SMs and is slower than the one-row kernel.
+
+The lesson continues: each fix removes one limit and exposes the next (DRAM → L1 → parallelism).
+Still 4× is not reached. Next candidates, from the same measurements: coalesced x loads (halve
+x's sector traffic) and splitting each row's K range across warps (restore parallelism).
 
 What this does **not** do: INT4 or group-wise scales (one scale per 64–128 weights), INT8 Tensor
 Cores or activation quantization (W8A8), calibration on a real model (the weights are random),

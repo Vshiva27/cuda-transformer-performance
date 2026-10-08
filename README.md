@@ -189,17 +189,20 @@ All charts are generated from the measured CSV files by
 match the data.
 
 **Also measured on an A100 (SXM4, 40 GB).** The charts above are from the T4. The same code on
-the A100 reaches 80–88% of DRAM peak on the memory-bound kernels, and GEMM v4 reaches 37% of
+the A100 reaches 81–88% of DRAM peak on the memory-bound kernels, and GEMM v4 reaches 37% of
 FP32 peak (T4: 27%). cuBLAS gains more (46% → 85%), so the gap to cuBLAS grows. A100 tables
 and the T4 comparison are in [docs/12 §9](docs/12_results.md#9-nvidia-a100-sxm4-40gb), with
 A100 charts in [assets/NVIDIA_A100_SXM4_40GB/](assets/NVIDIA_A100_SXM4_40GB/).
 
 **INT8 weight-only quantization (A100, decode, 7B-class layers):** FP16 weights are 1.9× faster
-than FP32, as predicted from the bytes. INT8 weights are **2.1–2.7×** faster, not the predicted 4×:
-INT8 reaches only 46–61% of DRAM peak. Nsight Compute shows why: weight bytes did drop 4×, but
-each weight still needs 4 bytes of activations read through L1, and L1 hits 93% of its ceiling.
-The bottleneck moved from DRAM to L1. Per-row scales keep the error at 1.5% when a few outlier weights are present; a single
-per-tensor scale gives 20% ([docs/12 §9.1](docs/12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9)).
+than FP32, as predicted from the bytes. With the first INT8 kernel, INT8 weights were only
+2.1–2.7× faster, not the predicted 4×. Nsight Compute showed why: weight bytes did drop 4×, but
+each weight still needs its activation read through L1, and L1 hit 94% of its ceiling. A second
+kernel reads each activation once for 2 rows: **3.2× faster than FP32** (MLP up; 2.7× on MLP
+down), with L1 traffic falling exactly as the model predicted. 4 or 8 rows per warp are slower:
+too few warps remain to keep DRAM busy. Per-row scales keep the error at 1.5% when a few outlier
+weights are present; a single per-tensor scale gives 20%
+([docs/12 §9.1–9.2](docs/12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9)).
 
 ## Profiler-verified results
 

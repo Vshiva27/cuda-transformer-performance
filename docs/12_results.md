@@ -352,7 +352,7 @@ a ratio of 1.22, matching the measured 1.21× fusion speedup.
 > generated `summary.md`), profiler reports:
 > [`profiling/reports/NVIDIA_A100_SXM4_40GB/`](../profiling/reports/NVIDIA_A100_SXM4_40GB/),
 > charts: [`assets/NVIDIA_A100_SXM4_40GB/`](../assets/NVIDIA_A100_SXM4_40GB/). Same code, same
-> benchmarks as the T4 sections above, plus INT8 quantization (§9.1). 7/7 tests pass.
+> benchmarks as the T4 sections above, plus INT8 quantization (§9.1, §9.2). 7/7 tests pass.
 
 | Field | Value |
 |---|---|
@@ -360,60 +360,63 @@ a ratio of 1.22, matching the measured 1.21× fusion speedup.
 | Compute capability | 8.0 (Ampere) |
 | Peak (as reported by the benchmarks) | 1,555.2 GB/s DRAM, 19,492 GFLOP/s FP32 (CUDA cores, 1.41 GHz) |
 | Driver / CUDA | 580.82.07 / CUDA 13.0 (nvcc 13.0.88), PyTorch 2.11.0+cu130 |
-| TF32 | off for all FP32 rows (measured separately: cuBLAS TF32 1024³ = 67,498 GFLOP/s) |
+| TF32 | off for all FP32 rows (measured separately: cuBLAS TF32 1024³ = 67,519 GFLOP/s) |
 
 ### T4 vs A100, in % of each GPU's peak
 
 | Kernel | Size | T4 | A100 |
 |---|---|---|---|
-| Vector add (naive) | n = 2²⁶ | 82% (262.7 GB/s) | **88%** (1,368.5 GB/s) |
-| Softmax v2 block/row | 12288×1024 | 76% | **80%** (1,251.6 GB/s) |
-| LayerNorm v3 | 8192×4096 | 72% | **86%** (1,335.4 GB/s) |
-| GEMM v4 register 4×4 | 1024³ | 27% (2,236 GFLOP/s) | **37%** (7,143 GFLOP/s) |
-| GEMM v4 register 4×4 | 4096³ | – | **43%** (8,292 GFLOP/s) |
-| cuBLAS FP32 | 1024³ | 46% (3,730 GFLOP/s) | **85%** (16,626 GFLOP/s) |
+| Vector add (naive) | n = 2²⁶ | 82% (262.7 GB/s) | **88%** (1,368.2 GB/s) |
+| Softmax v2 block/row | 12288×1024 | 76% | **81%** (1,253.2 GB/s) |
+| LayerNorm v3 | 8192×4096 | 72% | **86%** (1,335.1 GB/s) |
+| GEMM v4 register 4×4 | 1024³ | 27% (2,236 GFLOP/s) | **37%** (7,154 GFLOP/s) |
+| GEMM v4 register 4×4 | 4096³ | – | **43%** (8,318 GFLOP/s) |
+| cuBLAS FP32 | 1024³ | 46% (3,730 GFLOP/s) | **85%** (16,591 GFLOP/s) |
 | GEMM v4 as a fraction of cuBLAS FP32 | 1024³ | 0.60× | 0.43× |
 
 ### Summary table (A100)
 
 | Operation | Size | Precision | CPU (1 thread) | PyTorch | CUDA basic | CUDA optimized | Basic → optimized |
 |---|---|---|---|---|---|---|---|
-| Vector add | n = 2²⁶ | FP32 | 63.88 ms | – | 0.588 ms (naive) | – (memory-bound: 88% of peak already) | – |
-| GEMM | 1024³ | FP32 | 223.48 ms | 0.129 ms (cuBLAS) | 7.416 ms (v1) | 0.301 ms (v4) | **24.7×** |
-| GEMM | 1024³ | FP16 in / FP32 acc | – | 0.022 ms (cuBLAS) | 0.406 ms (tiled, CUDA cores) | 0.130 ms (v5 WMMA) | 3.1× |
-| Softmax | 12288×1024 | FP32 | 256.34 ms | 0.081 ms | 0.822 ms (v1) | 0.080 ms (v2) | **10.2×** |
-| LayerNorm | 8192×4096 | FP32 | 136.92 ms | 0.294 ms | 3.565 ms (v1) | 0.201 ms (v3) | **17.7×** |
-| Add + LayerNorm | 8192×4096 | FP32 | – | 0.590 ms (2 kernels) | 0.499 ms (ours, 2 kernels) | 0.404 ms (fused) | 1.24× |
-| Attention (causal) | 12×2048×64 | FP32 | – | – | 3.269 ms (unfused) | 3.487 ms (fused) | 0.94× (fused is slower) |
-| Attention decode | 1 × 2048 ctx | FP32 | – | – | 3.494 ms (recompute) | 0.508 ms (KV cache) | **6.9×** |
-| Decode GEMV, 7B-class MLP up | 11008×4096 | FP32 → INT8 weights | – | – | 0.1345 ms (FP32 weights) | 0.0606 ms (INT8 weights) | 2.2× |
+| Vector add | n = 2²⁶ | FP32 | 64.56 ms | – | 0.589 ms (naive) | – (memory-bound: 88% of peak already) | – |
+| GEMM | 1024³ | FP32 | 226.26 ms | 0.129 ms (cuBLAS) | 7.391 ms (v1) | 0.300 ms (v4) | **24.6×** |
+| GEMM | 1024³ | FP16 in / FP32 acc | – | 0.025 ms (cuBLAS) | 0.406 ms (tiled, CUDA cores) | 0.130 ms (v5 WMMA) | 3.1× |
+| Softmax | 12288×1024 | FP32 | 256.88 ms | 0.081 ms | 0.825 ms (v1) | 0.080 ms (v2) | **10.3×** |
+| LayerNorm | 8192×4096 | FP32 | 134.88 ms | 0.294 ms | 3.559 ms (v1) | 0.201 ms (v3) | **17.7×** |
+| Add + LayerNorm | 8192×4096 | FP32 | – | 0.588 ms (2 kernels) | 0.500 ms (ours, 2 kernels) | 0.406 ms (fused) | 1.23× |
+| Attention (causal) | 12×2048×64 | FP32 | – | – | 3.266 ms (unfused) | 3.483 ms (fused) | 0.94× (fused is slower) |
+| Attention decode | 1 × 2048 ctx | FP32 | – | – | 3.500 ms (recompute) | 0.507 ms (KV cache) | **6.9×** |
+| Decode GEMV, 7B-class MLP up | 11008×4096 | FP32 → INT8 weights | – | – | 0.1355 ms (FP32 weights) | 0.0419 ms (INT8, 2 rows/warp) | **3.2×** |
 
-These numbers are from the second A100 run (the one that added quantization). The single-thread
-CPU baseline varies between runs on the shared Colab host (GEMM 1024³: 319.6 ms in the first run,
-223.5 ms here). GPU rows of the two runs agree within a few percent, except cuBLAS FP32 (+4%) and
-non-causal fused attention at seq 2048 (7.81 → 6.43 ms).
+**Which run.** All numbers in this section come from the latest of four A100 runs, the first one
+that includes the multi-row INT8 kernel. Between runs, GPU rows agree within about 1%, with three
+exceptions: the single-thread CPU baseline (shared Colab host; GEMM 1024³ took 319.6 ms in the
+first run and 223–226 ms later), cuBLAS FP16 at 1024³ (95.5 TFLOP/s in one run, 86.6 here), and
+non-causal fused attention at seq 2048 (7.81, 6.43 and 7.84 ms in three runs), whose time is not
+stable from run to run.
 
 ### What changed compared with the T4
 
-1. **Memory-bound kernels get closer to peak** (80–88% vs 72–82%). PyTorch matches our
+1. **Memory-bound kernels get closer to peak** (81–88% vs 72–82%). PyTorch matches our
    softmax (0.081 vs 0.080 ms) but is still behind our LayerNorm (0.294 vs 0.201 ms).
 2. **The gap to cuBLAS grew**, as predicted in [09 §21](09_benchmarking.md) item 4: cuBLAS FP32
    goes from 46% to 85% of peak, our v4 only from 27% to 37%, so v4 falls from 0.60× to 0.43×
-   of cuBLAS. For FP16, cuBLAS (95.5 TFLOP/s) is **5.8×** faster than our WMMA kernel
-   (16.5 TFLOP/s); the T4 ratio was 10.9×. WMMA vs FP32 v4 improves from 1.49× to 2.31×.
-3. **Large L2 shows up.** Softmax 4096×512 (8 MB in + 8 MB out) reaches 1,645 GB/s =
-   **106% of DRAM peak**, so that row measures L2, not DRAM (see 09 §21 item 2). Only rows
+   of cuBLAS. For FP16, cuBLAS (86.6 TFLOP/s in this run, 95.5 in an earlier one) is
+   **5.2–5.8×** faster than our WMMA kernel (16.5 TFLOP/s); the T4 ratio was 10.9×. WMMA vs FP32
+   v4 improves from 1.49× to 2.31×.
+3. **Large L2 shows up.** Softmax 4096×512 (8 MB in + 8 MB out) reaches 1,661 GB/s =
+   **107% of DRAM peak**, so that row measures L2, not DRAM (see 09 §21 item 2). Only rows
    larger than the 40 MB L2 are DRAM-bandwidth claims: vector add 2²⁶, softmax 12288×1024,
    LayerNorm 8192×4096, the 7B-class GEMV rows.
 4. **The softmax ranking shifts with the L2.** At 4096×1024 (32 MB, fits in L2) warp/row and
-   block/row are close (1,109 vs 1,141 GB/s). At 12288×1024 (96 MB) warp/row drops to 792 GB/s
-   while block/row reaches 1,252. This is consistent with the T4 explanation (§8, question 2:
+   block/row are level (1,157 vs 1,147 GB/s). At 12288×1024 (96 MB) warp/row drops to 792 GB/s
+   while block/row reaches 1,253. This is consistent with the T4 explanation (§8, question 2:
    warp/row re-reads x from DRAM once its rows in flight exceed L2), but it was not separately
    verified with DRAM counters on the A100.
 5. **Fused causal attention is no longer faster** (0.94× vs 1.21× on the T4). Non-causal fused
-   attention was already slower on both GPUs (A100 seq 2048: 6.43 vs 4.08 ms unfused).
-6. **The KV-cache decode step did not get faster:** 0.508 ms on the A100 vs 0.503 ms on the T4
-   at 2,048 context, while recomputing got 4.3× faster (15.09 → 3.49 ms). So the speedup from
+   attention was already slower on both GPUs (A100 seq 2048: 7.84 vs 4.09 ms unfused).
+6. **The KV-cache decode step did not get faster:** 0.507 ms on the A100 vs 0.503 ms on the T4
+   at 2,048 context, while recomputing got 4.3× faster (15.09 → 3.50 ms). So the speedup from
    caching drops from 30× to 6.9×. One query row gives the decode kernel little parallel work,
    so a GPU with more SMs and bandwidth does not help it; that is the likely reason, not yet
    checked in the profiler.
@@ -421,18 +424,18 @@ non-causal fused attention at seq 2048 (7.81 → 6.43 ms).
 ### 9.1 INT8 weight-only quantization (decode GEMV, docs/08 §9)
 
 Measured on the A100 only (the T4 run predates this kernel). One decoding step y = W x, FP32
-activations and accumulation; all three weight formats run the same kernel. Weights of 45–201 MB
-are larger than the 40 MB L2, so these rows measure DRAM. % = achieved GB/s (minimum bytes / time)
-as a share of the 1,555 GB/s peak.
+activations and accumulation; the three weight formats run the same one-row kernel. Weights of
+45–201 MB are larger than the 40 MB L2, so these rows measure DRAM. % = achieved GB/s (minimum
+bytes / time) as a share of the 1,555 GB/s peak.
 
 | Shape (N × K) | FP32 weights | FP16 weights | INT8 weights, per-row scale | INT8 vs FP32 | INT8 vs FP16 |
 |---|---|---|---|---|---|
 | 7B-class QKV (12288 × 4096) | 0.1445 ms, 90% | 0.0751 ms, 86% | 0.0534 ms, **61%** | 2.71× | 1.41× |
-| 7B-class MLP up (11008 × 4096) | 0.1345 ms, 86% | 0.0700 ms, 83% | 0.0606 ms, **48%** | 2.22× | 1.16× |
-| 7B-class MLP down (4096 × 11008) | 0.1310 ms, 89% | 0.0695 ms, 84% | 0.0631 ms, **46%** | 2.08× | 1.10× |
+| 7B-class MLP up (11008 × 4096) | 0.1355 ms, 86% | 0.0702 ms, 83% | 0.0616 ms, **47%** | 2.20× | 1.14× |
+| 7B-class MLP down (4096 × 11008) | 0.1309 ms, 89% | 0.0695 ms, 84% | 0.0635 ms, **46%** | 2.06× | 1.09× |
 
 **Prediction vs measurement.** The prediction was "time ∝ bytes of W": FP16 2×, INT8 4×. FP16
-held (1.89–1.92×, still 83–86% of peak). **INT8 did not:** 2.1–2.7× instead of 4×, because it
+held (1.89–1.93×, still 83–86% of peak). **INT8 did not:** 2.1–2.7× instead of 4×, because it
 reaches only 46–61% of DRAM peak, so DRAM bandwidth is no longer its limit. The kernels use no
 local memory (`resource_usage.txt`: `LOCAL:0`, 31–36 registers).
 
@@ -442,28 +445,29 @@ ncu locks the clock to base, so its durations are a little longer than the bench
 
 | Kernel | DRAM read | DRAM throughput | **L1/TEX throughput** | L1 hit rate | SM throughput | Cycles per issued instruction |
 |---|---|---|---|---|---|---|
-| FP32 weights | 180.4 MB | 89% | 21% | 50% | 9% | 200 |
-| FP16 weights | 90.2 MB | 87% | 51% | 80% | 14% | 88 |
-| INT8 weights | 45.2 MB | 48% | **93%** | 88% | 38% | 49 |
+| FP32 weights | 180.4 MB | 89% | 21% | 50% | 9% | 201 |
+| FP16 weights | 90.2 MB | 86% | 51% | 80% | 14% | 88 |
+| INT8 weights | 45.2 MB | 49% | **94%** | 88% | 38% | 49 |
 
 - **DRAM traffic is exactly as designed:** 4, 2 and 1 byte per weight (180.4 / 90.2 / 45.2 MB),
   so the weights are read once and the 4× byte reduction happened.
 - **The limit moved to L1.** Every weight is multiplied by one FP32 element of x, and each warp
   reads x through L1, so x costs 4 bytes of L1 traffic per weight *whatever the weight type*.
   As the weight bytes shrink, that fixed x traffic dominates: L1/TEX throughput rises from 21%
-  (FP32) to 51% (FP16) to **93% (INT8)**, the unit's ceiling, while DRAM falls to 48%. The INT8
+  (FP32) to 51% (FP16) to **94% (INT8)**, the unit's ceiling, while DRAM falls to 49%. The INT8
   kernel moves 406 MB through L1 (12.7 M sectors) to read 45 MB of weights.
+- **The sector counts match a simple model exactly.** Each lane loads 16 weight bytes per step
+  and the matching x values. For FP32 that is 16 bytes of x, so neighbouring lanes read
+  neighbouring x and every 32-byte sector is fully used. For FP16 and INT8 a lane needs 32 or
+  64 bytes of x, so neighbouring lanes' 16-byte x loads are 32 or 64 bytes apart and each
+  fills only half a sector: x costs **8 bytes of sectors per weight**. Predicted global-load
+  sectors (weights + x): FP32 5.64 M + 5.64 M = 11.27 M, FP16 2.82 M + 11.27 M = 14.09 M,
+  INT8 1.41 M + 11.27 M = 12.68 M; measured 11,272,192 / 14,090,240 / 12,692,224.
 - **Not the cause:** compute (SM 38%, issue slots 19% busy), local memory, or bank conflicts (0).
   Warps still spend about half their stall time waiting on L1 loads.
 
-So the first unverified guess (x reads per byte of W) was right, specifically the L1 side of it,
-and the instruction-issue side was not. The fix is to reuse each x value for several rows:
-a warp that computes R outputs reads x once for R rows, cutting x's L1 traffic by R. This is
-implemented as `gpu::gemv_int8_multirow` (R = 1, 2, 4, 8; `bench_quantization` Experiment C and
-the "4 rows/warp" rows of Experiment A); its results are not measured yet.
-
-**GPT-2-small decode shapes** (2–9 MB of FP32 weights, which fit in L2) take 4.9–6.7 µs in every
-format, and INT8 is only 1.02–1.09× faster than FP32: at this size the time is launch and
+**GPT-2-small decode shapes** (2–9 MB of FP32 weights, which fit in L2) take 5.0–6.9 µs in every
+format, and INT8 is only 1.02–1.10× faster than FP32: at this size the time is launch and
 latency, not bytes.
 
 **Accuracy** (N = K = 4096, error of y against the exact product of the original FP32 weights):
@@ -481,3 +485,58 @@ Without outliers, every row has max |w| ≈ 1, so per-row and per-tensor scales 
 and give the same 0.4% error (21× FP16's). With 16 outliers, a per-tensor scale damages every
 output (20% RMS error); per-row scales keep the RMS error at 1.5%, with the damage concentrated in
 the 16 rows that contain an outlier (max error 13%).
+
+### 9.2 Reading x once for several rows (`gemv_int8_multirow`)
+
+The fix for the L1 limit: each warp computes R consecutive outputs and reads each chunk of x
+once for all R rows, so x's L1 traffic per weight drops by R (docs/08 §9).
+`bench_quantization` Experiment C, INT8 weights, time per decode step:
+
+| Rows per warp | 7B-class MLP up (11008 × 4096) | 7B-class MLP down (4096 × 11008) | 7B-class QKV (12288 × 4096) † |
+|---|---|---|---|
+| one-row kernel (§9.1) | 0.0617 ms, 47% of peak | 0.0636 ms, 46% | 0.0683 ms, 48% † |
+| R = 1 (multi-row kernel) | 0.0601 ms, 48% | 0.0637 ms, 46% | 0.0679 ms, 48% † |
+| **R = 2** | **0.0419 ms, 69%** | **0.0479 ms, 61%** | **0.0463 ms, 70%** |
+| R = 4 | 0.0455 ms, 64% | 0.0611 ms, 48% | 0.0473 ms, 69% |
+| R = 8 | 0.0520 ms, 56% | 0.0894 ms, 32% | 0.0537 ms, 61% |
+
+† The QKV one-row time here (0.0683 ms) is 28% slower than the same kernel in Experiment A of
+the same run (0.0534 ms); the other two shapes agree within 1%. QKV was the first timing after
+Experiment B's seconds of CPU-only work, and 5 warm-up launches were most likely too few for the
+GPU clocks to recover. The QKV column's ratios are therefore not used; Experiment C now warms up
+for 100 launches.
+
+**R = 2 is best on every shape**: 1.48× (MLP up) and 1.33× (MLP down) faster than the one-row
+kernel. Against the other weight formats, with R = 2:
+
+| Shape | FP32 weights | FP16 weights | INT8, 2 rows/warp | INT8 vs FP32 | INT8 vs FP16 |
+|---|---|---|---|---|---|
+| 7B-class MLP up | 0.1355 ms | 0.0702 ms | 0.0419 ms | **3.23×** | 1.68× |
+| 7B-class MLP down | 0.1309 ms | 0.0695 ms | 0.0479 ms | **2.73×** | 1.45× |
+
+So INT8 moved from 2.1–2.2× to 2.7–3.2× faster than FP32; the prediction from bytes alone (4×)
+is still not reached. **Why R = 4 and R = 8 are worse, measured** (Nsight Compute, MLP up,
+R = 4 vs the one-row INT8 kernel):
+
+| | One-row INT8 | Multi-row INT8, R = 4 |
+|---|---|---|
+| L1 global-load sectors | 12.69 M | **4.24 M** (model: 1.41 M weights + 11.27 M / 4 x = 4.23 M) |
+| L1/TEX throughput | 94% | 42% |
+| DRAM throughput | 49% | **66%** |
+| Duration (base clock) | 63.0 µs | 46.3 µs |
+| Registers per thread | 36 | 48 |
+| Grid / waves per SM | 1,376 blocks / 2.12 | **344 blocks / 0.64** |
+| Achieved occupancy | 66% | **34%** |
+
+- **The fix worked as designed:** L1 traffic fell to exactly the predicted 4.23 M sectors, L1
+  is no longer the bottleneck (42%), and DRAM throughput rose from 49% to 66%.
+- **The new limit is parallelism.** With 4 rows per warp there are 4× fewer warps; at 48
+  registers per thread only 5 blocks fit per SM, so 344 blocks are 0.64 of one wave and
+  occupancy is 34%. Too few loads are in flight to keep DRAM busy. R = 2 keeps twice the warps,
+  which is why it wins; R = 8 on MLP down (N = 4096) launches only 64 blocks for 108 SMs, so 44
+  SMs have no work (0.0894 ms, slower than the one-row kernel).
+- R = 2 was not profiled separately; its counters are an open item.
+- Two further steps follow from the measurements, neither implemented yet: (1) load x so that
+  neighbouring lanes read neighbouring 16-byte pieces, which would halve x's sector traffic
+  (the half-used sectors above); (2) split each row's K range across more warps, which would
+  restore parallelism at R = 4.

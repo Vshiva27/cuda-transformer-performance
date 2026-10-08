@@ -18,36 +18,36 @@ Ridge point         : 12.5 FLOP/byte
 
 Experiment A: LayerNorm over the hidden dimension, FP32
 
-512 x 768 (GPT-2 small, 512 tokens)   CPU (double-precision reference): 1.621 ms
+512 x 768 (GPT-2 small, 512 tokens)   CPU (double-precision reference): 1.623 ms
   version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row      |     0.8056 |       3.9 |    0.3% |    1.00x |     2.0x
-  v2 warp/row        |     0.0092 |     343.2 |   22.1% |   87.90x |   176.9x
-  v3 block/row regs  |     0.0055 |     576.4 |   37.1% |  147.60x |   297.1x
+  v1 thread/row      |     0.8054 |       3.9 |    0.3% |    1.00x |     2.0x
+  v2 warp/row        |     0.0091 |     344.0 |   22.1% |   88.08x |   177.5x
+  v3 block/row regs  |     0.0054 |     581.8 |   37.4% |  148.96x |   300.1x
 
-2048 x 768 (GPT-2 small, 2048 tokens)   CPU (double-precision reference): 6.436 ms
+2048 x 768 (GPT-2 small, 2048 tokens)   CPU (double-precision reference): 6.481 ms
   version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row      |     0.8066 |      15.6 |    1.0% |    1.00x |     8.0x
-  v2 warp/row        |     0.0105 |    1203.5 |   77.4% |   77.15x |   615.6x
-  v3 block/row regs  |     0.0100 |    1262.9 |   81.2% |   80.96x |   646.0x
+  v1 thread/row      |     0.8061 |      15.6 |    1.0% |    1.00x |     8.0x
+  v2 warp/row        |     0.0104 |    1207.1 |   77.6% |   77.33x |   621.7x
+  v3 block/row regs  |     0.0099 |    1269.4 |   81.6% |   81.32x |   653.9x
 
-4096 x 1024 (BERT-large/GPT-2 medium, 4096 tokens)   CPU (double-precision reference): 17.098 ms
+4096 x 1024 (BERT-large/GPT-2 medium, 4096 tokens)   CPU (double-precision reference): 17.179 ms
   version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row      |     0.8915 |      37.6 |    2.4% |    1.00x |    19.2x
-  v2 warp/row        |     0.0301 |    1113.0 |   71.6% |   29.57x |   567.2x
-  v3 block/row regs  |     0.0274 |    1225.0 |   78.8% |   32.55x |   624.2x
+  v1 thread/row      |     0.8904 |      37.7 |    2.4% |    1.00x |    19.3x
+  v2 warp/row        |     0.0294 |    1141.7 |   73.4% |   30.30x |   584.5x
+  v3 block/row regs  |     0.0267 |    1256.4 |   80.8% |   33.34x |   643.3x
 
-8192 x 4096 (LLaMA-7B hidden size, 8192 tokens)   CPU (double-precision reference): 136.923 ms
+8192 x 4096 (LLaMA-7B hidden size, 8192 tokens)   CPU (double-precision reference): 134.876 ms
   version            |         ms |      GB/s |  % peak |    vs v1 |   vs CPU
-  v1 thread/row      |     3.5645 |      75.3 |    4.8% |    1.00x |    38.4x
-  v2 warp/row        |     0.4653 |     577.0 |   37.1% |    7.66x |   294.3x
-  v3 block/row regs  |     0.2010 |    1335.4 |   85.9% |   17.73x |   681.2x
+  v1 thread/row      |     3.5590 |      75.4 |    4.8% |    1.00x |    37.9x
+  v2 warp/row        |     0.4655 |     576.7 |   37.1% |    7.65x |   289.8x
+  v3 block/row regs  |     0.2011 |    1335.1 |   85.8% |   17.70x |   670.8x
 
 
 Experiment B: residual add + LayerNorm, unfused (2 kernels) vs fused (1 kernel)
 GB/s uses the task's minimum traffic of 16 bytes/element for both.
 
   shape        |   unfused ms |     fused ms | unfused GB/s | fused GB/s |  speedup
-  512x768      |       0.0094 |       0.0061 |        667.1 |     1032.6 |    1.55x
-  2048x768     |       0.0184 |       0.0127 |       1364.6 |     1981.9 |    1.45x
-  4096x1024    |       0.0692 |       0.0558 |        970.5 |     1203.2 |    1.24x
-  8192x4096    |       0.4986 |       0.4036 |       1076.7 |     1330.3 |    1.24x
+  512x768      |       0.0093 |       0.0061 |        675.2 |     1036.1 |    1.53x
+  2048x768     |       0.0184 |       0.0127 |       1366.1 |     1981.9 |    1.45x
+  4096x1024    |       0.0692 |       0.0558 |        969.6 |     1203.4 |    1.24x
+  8192x4096    |       0.4996 |       0.4061 |       1074.6 |     1322.0 |    1.23x

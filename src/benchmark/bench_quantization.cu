@@ -274,7 +274,11 @@ int main(int argc, char** argv) {
 
         std::printf("\n%s  (N=%d, K=%d)\n", s.name, s.N, s.K);
         std::printf("  %-16s | %10s | %9s | %7s | %13s\n", "rows per warp", "ms", "GB/s", "% peak", "vs one row/warp");
-        const float base_ms = time_gpu_ms([&] { L.run(Format::INT8); }, 5, 50);
+        // Long warm-up: this experiment starts after seconds of CPU-only work (Experiment B and
+        // building the layer). With 5 warm-up launches (~0.3 ms) the first shape timed 28% slower
+        // here than the same kernel in Experiment A, most likely because the GPU clocks had not
+        // ramped back up yet.
+        const float base_ms = time_gpu_ms([&] { L.run(Format::INT8); }, 100, 50);
         std::printf("  %-16s | %10.4f | %9.1f | %6.1f%% | %13s\n", "one row/warp", base_ms,
                     bandwidth_gbs(L.min_bytes(Format::INT8), base_ms),
                     peak > 0 ? 100.0 * bandwidth_gbs(L.min_bytes(Format::INT8), base_ms) / peak : 0.0, "1.00x");
@@ -289,7 +293,7 @@ int main(int argc, char** argv) {
                              s.name, e.scaled_err);
                 return EXIT_FAILURE;
             }
-            const float ms = time_gpu_ms(launch, 5, 50);
+            const float ms = time_gpu_ms(launch, 20, 50);
             const double gbs = bandwidth_gbs(L.min_bytes(Format::INT8), ms);
             char label[32], vs[32];
             std::snprintf(label, sizeof(label), "R = %d", rows);

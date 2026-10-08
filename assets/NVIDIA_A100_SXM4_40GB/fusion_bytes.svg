@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="200" viewBox="0 0 800 200" role="img" aria-labelledby="t d">
   <title id="t">Kernel fusion, measured in DRAM bytes</title>
-  <desc id="d">Bytes per element: unfused 19.29 (minimum 20), fused 15.55 (minimum 16). Time 0.498637 ms vs 0.403558 ms.</desc>
+  <desc id="d">Bytes per element: unfused 19.29 (minimum 20), fused 15.55 (minimum 16). Time 0.49961 ms vs 0.406118 ms.</desc>
   <style>
     .title { font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     .sub   { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
@@ -61,5 +61,5 @@
   <path class="s1" d="M222 122 H466.8 Q470.8 122 470.8 126 V140 Q470.8 144 466.8 144 H222 Z"/>
   <line class="mark" x1="478" y1="118" x2="478" y2="148"/>
   <text class="value" x="486" y="137.5">15.55</text>
-  <text class="note" x="533.7" y="137.5">0.40 ms · 1.24× faster</text>
+  <text class="note" x="533.7" y="137.5">0.41 ms · 1.23× faster</text>
 </svg>
