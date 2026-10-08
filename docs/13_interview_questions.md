@@ -328,6 +328,22 @@ shuffles and exponentials per key, while the unfused path uses tiled GEMMs. Fusi
 not instructions. Real FlashAttention processes query × key tiles as Tensor Core GEMMs. With
 causal masking mine is 1.2× faster, because it skips future keys.
 
+**Did you test the kernels inside a real model?**
+Yes: GPT-2 from Hugging Face, decoding with every linear layer, LayerNorm and the attention on my
+kernels (PyTorch only for bias, GELU, residual and cache writes). On an A100, FP32 logits matched
+Hugging Face to 1.4e-6 of the logit scale at every prompt position, and all 32 greedy tokens were
+identical. FP16 weights also matched all 32. INT8 weights changed the logits by 1.8% and the text
+diverged after 4 tokens. One kernel needed a change: the attention kernel assumed a packed KV
+cache, and real caches are preallocated, so it got a capacity (stride) parameter.
+
+**Why didn't INT8 make GPT-2 faster end to end?**
+GPT-2 small at batch 1 is launch-bound: about 185 kernel launches per token take ~1.6 ms, while
+reading all 494 MB of FP32 weights takes ~0.25 ms. The GPU waits for the CPU between kernels, so
+4× fewer weight bytes changed the time by under 4%. The weight format matters only when reading
+the weights dominates: a larger model, or CUDA Graphs and fused glue kernels to remove launches.
+My version was also 5.5× faster than Hugging Face, but Hugging Face FP32 and FP16 took the same
+9.0 ms, so that's Python overhead, not kernels.
+
 **How did you verify correctness?**
 CPU references in double precision. Tolerances derived from the arithmetic (they grow with K or
 the row length), validated by CPU emulation of each kernel's summation order. Poison values in

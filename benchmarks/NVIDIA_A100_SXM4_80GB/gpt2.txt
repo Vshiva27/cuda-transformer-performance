@@ -1,0 +1,31 @@
+GPU: NVIDIA A100-SXM4-80GB   model: gpt2   torch 2.11.0+cu130
+Building the extension (first time: about a minute)...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 26.0/26.0 [00:00<00:00, 105kB/s]
+vocab.json: 100% 1.04M/1.04M [00:00<00:00, 1.64MB/s]
+merges.txt: 100% 456k/456k [00:00<00:00, 2.85MB/s]
+tokenizer.json: 100% 1.36M/1.36M [00:00<00:00, 1.63MB/s]
+config.json: 100% 665/665 [00:00<00:00, 3.38MB/s]
+
+model.safetensors: downloading bytes:  87% 474M/548M [00:02<00:00, 283MB/s, 41.6MB/s  ]
+model.safetensors: reconstructing file:  86% 469M/548M [00:02<00:00, 186MB/s]
+model.safetensors: downloading bytes: 100% 474M/474M [00:02<00:00, 165MB/s, 42.6MB/s  ]
+model.safetensors: reconstructing file: 100% 548M/548M [00:02<00:00, 191MB/s, 50.9MB/s  ]
+Loading weights: 100% 148/148 [00:00<00:00, 5782.61it/s]
+generation_config.json: 100% 124/124 [00:00<00:00, 586kB/s]
+
+== Verification against Hugging Face (FP32) ==
+  fp32  weights: prompt logits max |diff| = 1.37e-06 of max |logit|, next-token argmax agrees at 100% of prompt positions; greedy tokens identical for 32/32
+        text: "The GPU kernels behind Transformer inference are not very good at handling the GPU's state.\n\nThe GPU's state is not always clear. For example, the GPU's state is not always clear"
+  fp16  weights: prompt logits max |diff| = 3.20e-04 of max |logit|, next-token argmax agrees at 100% of prompt positions; greedy tokens identical for 32/32
+  int8  weights: prompt logits max |diff| = 1.77e-02 of max |logit|, next-token argmax agrees at 100% of prompt positions; greedy tokens identical for 4/32
+
+== Decode speed: batch 1, 128 generated tokens after a 8-token prompt (wall clock, includes Python and launch overhead) ==
+  implementation                     | weights MB |  ms/token |  tokens/s | vs HF FP32
+  Hugging Face, FP32                 |      497.8 |     9.028 |     110.8 |      1.00x
+  ours, FP32 weights                 |      494.1 |     1.636 |     611.1 |      5.52x
+  ours, FP16 weights                 |      247.1 |     1.618 |     618.0 |      5.58x
+  ours, INT8 weights, 1 row/warp     |      124.1 |     1.587 |     630.0 |      5.69x
+  ours, INT8 weights, 2 rows/warp    |      124.1 |     1.577 |     634.3 |      5.73x
+  Hugging Face, FP16                 |      248.9 |     9.019 |     110.9 |      1.00x
+Wrote benchmarks/NVIDIA_A100_SXM4_40GB/gpt2.csv
