@@ -278,11 +278,12 @@ pip install transformers
 python3 llm/run_gpt2.py --verify --bench --model gpt2 --csv benchmarks/<GPU>/gpt2.csv   # or gpt2-xl
 ```
 
-Measured on an A100-SXM4-80GB with GPT-2 small: FP32 logits match Hugging Face to 1.4e-6 and all
-32 greedy tokens are identical. Speed: ~1.6 ms per token in every weight format, because at batch 1
-a model this small is launch-bound (INT8's 4× fewer weight bytes saved under 4%). It is 5.5× faster
-than Hugging Face eager, but that gap is Python/framework overhead, not the kernels. Details:
-[docs/14](docs/14_llm_integration.md).
+Measured on an A100-SXM4-80GB: for GPT-2 (124M) and GPT-2 XL (1.5B), FP32 logits match Hugging Face
+to ~1e-6 and all 32 greedy tokens are identical; with INT8 weights GPT-2 XL also matches 32/32.
+Speed: decoding at batch 1 is launch-bound (~15 kernel launches per layer). On GPT-2 XL, FP16
+weights are 1.16× faster than FP32 (7.5 → 6.5 ms per token), but INT8 adds nothing on top: both sit
+on the ~6.2 ms launch floor. The ~5× over Hugging Face eager is Python/framework overhead, not the
+kernels. Details: [docs/14](docs/14_llm_integration.md).
 
 **Requirements:** an NVIDIA GPU (detected at runtime; Tensor Core tests need compute
 capability ≥ 7.0), CUDA Toolkit 11+, CMake ≥ 3.18, a C++17 compiler; PyTorch for the baseline

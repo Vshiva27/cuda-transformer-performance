@@ -332,17 +332,20 @@ causal masking mine is 1.2× faster, because it skips future keys.
 Yes: GPT-2 from Hugging Face, decoding with every linear layer, LayerNorm and the attention on my
 kernels (PyTorch only for bias, GELU, residual and cache writes). On an A100, FP32 logits matched
 Hugging Face to 1.4e-6 of the logit scale at every prompt position, and all 32 greedy tokens were
-identical. FP16 weights also matched all 32. INT8 weights changed the logits by 1.8% and the text
-diverged after 4 tokens. One kernel needed a change: the attention kernel assumed a packed KV
+identical, for GPT-2 small and GPT-2 XL. FP16 weights also matched all 32. INT8 weights changed
+GPT-2 small's logits by 1.8% and its text diverged after 4 tokens; on GPT-2 XL the change was 0.8%
+and all 32 tokens matched. One kernel needed a change: the attention kernel assumed a packed KV
 cache, and real caches are preallocated, so it got a capacity (stride) parameter.
 
 **Why didn't INT8 make GPT-2 faster end to end?**
-GPT-2 small at batch 1 is launch-bound: about 185 kernel launches per token take ~1.6 ms, while
-reading all 494 MB of FP32 weights takes ~0.25 ms. The GPU waits for the CPU between kernels, so
-4× fewer weight bytes changed the time by under 4%. The weight format matters only when reading
-the weights dominates: a larger model, or CUDA Graphs and fused glue kernels to remove launches.
-My version was also 5.5× faster than Hugging Face, but Hugging Face FP32 and FP16 took the same
-9.0 ms, so that's Python overhead, not kernels.
+Decoding at batch 1 is launch-bound: about 15 kernel launches per layer, ~8.5 µs each including
+dispatch. GPT-2 small: ~185 launches take ~1.6 ms, while reading all 494 MB of FP32 weights takes
+~0.25 ms, so 4× fewer weight bytes changed the time by under 4%. GPT-2 XL (48 layers): ~725
+launches give a floor of ~6.2 ms. FP32 (7.5 ms) was above it, so FP16 helped (6.5 ms, 1.16×), but
+INT8 (6.5 ms) just stayed on the floor: its 0.9 ms of weight reads are hidden behind the launches.
+So the next step is fewer launches (CUDA Graphs, fusing bias/GELU/residual into my kernels), not a
+faster GEMV. My version was also ~5× faster than Hugging Face, but Hugging Face FP32 and FP16 took
+the same time, so that's Python overhead, not kernels.
 
 **How did you verify correctness?**
 CPU references in double precision. Tolerances derived from the arithmetic (they grow with K or

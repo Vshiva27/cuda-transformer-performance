@@ -1,0 +1,51 @@
+GPU: NVIDIA A100-SXM4-80GB   model: gpt2-xl   torch 2.11.0+cu130
+Building the extension (first time: about a minute)...
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+tokenizer_config.json: 100% 26.0/26.0 [00:00<00:00, 112kB/s]
+vocab.json: 100% 1.04M/1.04M [00:00<00:00, 1.95MB/s]
+merges.txt: 100% 456k/456k [00:00<00:00, 16.8MB/s]
+tokenizer.json: 100% 1.36M/1.36M [00:00<00:00, 2.99MB/s]
+config.json: 100% 689/689 [00:00<00:00, 3.51MB/s]
+
+model.safetensors: downloading bytes:   5% 339M/6.43G [00:02<00:18, 327MB/s, 26.0MB/s  ]
+model.safetensors: downloading bytes:   6% 408M/6.43G [00:02<00:15, 395MB/s, 31.3MB/s  ]
+model.safetensors: reconstructing file:   5% 335M/6.43G [00:02<00:39, 154MB/s, 25.3MB/s  ]
+model.safetensors: downloading bytes:   8% 503M/6.43G [00:02<00:14, 421MB/s, 41.0MB/s  ]
+model.safetensors: downloading bytes:  10% 642M/6.43G [00:02<00:10, 528MB/s, 51.3MB/s  ]
+model.safetensors: downloading bytes:  11% 715M/6.43G [00:02<00:09, 575MB/s, 57.8MB/s  ]
+model.safetensors: reconstructing file:  10% 670M/6.43G [00:02<00:13, 412MB/s, 48.7MB/s  ]
+model.safetensors: downloading bytes:  16% 1.05G/6.43G [00:03<00:07, 698MB/s, 83.9MB/s  ]
+model.safetensors: downloading bytes:  18% 1.19G/6.43G [00:03<00:07, 688MB/s, 96.9MB/s  ]
+model.safetensors: downloading bytes:  20% 1.27G/6.43G [00:03<00:07, 704MB/s,  102MB/s  ]
+model.safetensors: downloading bytes:  23% 1.46G/6.43G [00:03<00:06, 820MB/s,  115MB/s  ]
+model.safetensors: downloading bytes:  29% 1.86G/6.43G [00:04<00:04, 974MB/s,  145MB/s  ]
+model.safetensors: downloading bytes:  31% 1.96G/6.43G [00:04<00:04, 986MB/s,  156MB/s  ]
+model.safetensors: downloading bytes:  35% 2.24G/6.43G [00:04<00:04, 955MB/s,  175MB/s  ]
+model.safetensors: downloading bytes:  38% 2.44G/6.43G [00:04<00:04, 978MB/s,  190MB/s  ]
+model.safetensors: downloading bytes:  40% 2.55G/6.43G [00:04<00:03, 1.01GB/s,  198MB/s  ]
+model.safetensors: downloading bytes:  46% 2.96G/6.43G [00:05<00:03, 1.03GB/s,  226MB/s  ]
+model.safetensors: downloading bytes:  51% 3.29G/6.43G [00:05<00:02, 1.05GB/s,  251MB/s  ]
+model.safetensors: downloading bytes:  59% 3.81G/6.43G [00:05<00:02, 1.24GB/s,  284MB/s  ]
+model.safetensors: downloading bytes:  81% 5.23G/6.43G [00:07<00:01, 1.18GB/s,  382MB/s  ]
+model.safetensors: downloading bytes:  90% 5.80G/6.43G [00:07<00:00, 873MB/s,  396MB/s  ]
+model.safetensors: reconstructing file:  88% 5.63G/6.43G [00:11<00:01, 459MB/s,  285MB/s  ]
+model.safetensors: downloading bytes: 100% 5.90G/5.90G [00:12<00:00, 485MB/s,  404MB/s  ]
+model.safetensors: reconstructing file: 100% 6.43G/6.43G [00:12<00:00, 529MB/s,  380MB/s  ]
+Loading weights: 100% 580/580 [00:00<00:00, 5604.89it/s]
+generation_config.json: 100% 124/124 [00:00<00:00, 543kB/s]
+
+== Verification against Hugging Face (FP32) ==
+  fp32  weights: prompt logits max |diff| = 1.05e-06 of max |logit|, next-token argmax agrees at 100% of prompt positions; greedy tokens identical for 32/32
+        text: 'The GPU kernels behind Transformer inference are written in C++ and are optimized for performance. The GPU kernels are written in C++ and are optimized for performance.\n\nThe GPU kernels behind Transformer'
+  fp16  weights: prompt logits max |diff| = 1.59e-04 of max |logit|, next-token argmax agrees at 100% of prompt positions; greedy tokens identical for 32/32
+  int8  weights: prompt logits max |diff| = 7.63e-03 of max |logit|, next-token argmax agrees at 100% of prompt positions; greedy tokens identical for 32/32
+
+== Decode speed: batch 1, 128 generated tokens after a 8-token prompt (wall clock, includes Python and launch overhead) ==
+  implementation                     | weights MB |  ms/token |  tokens/s | vs HF FP32
+  Hugging Face, FP32                 |     6230.4 |    34.143 |      29.3 |      1.00x
+  ours, FP32 weights                 |     6219.9 |     7.537 |     132.7 |      4.53x
+  ours, FP16 weights                 |     3109.9 |     6.524 |     153.3 |      5.23x
+  ours, INT8 weights, 1 row/warp     |     1557.9 |     6.711 |     149.0 |      5.09x
+  ours, INT8 weights, 2 rows/warp    |     1557.9 |     6.509 |     153.6 |      5.25x
+  Hugging Face, FP16                 |     3115.2 |    36.017 |      27.8 |      0.95x
+Wrote benchmarks/NVIDIA_A100_SXM4_40GB/gpt2_xl.csv

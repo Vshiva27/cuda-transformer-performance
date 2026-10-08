@@ -88,23 +88,29 @@ Face to **2.5e-7** of the logit scale and 12/12 greedy tokens are identical (FP1
 INT8: 6.9e-3, both 12/12). This validates the weight conversion, transposes, q/k/v split, head
 layout, positions and tied LM head; the CUDA kernels themselves are covered by the C++ tests.
 
-**Measured on a GPU** (NVIDIA A100-SXM4-80GB, GPT-2 124M, 8-token prompt;
-[`benchmarks/NVIDIA_A100_SXM4_80GB/gpt2.txt`](../benchmarks/NVIDIA_A100_SXM4_80GB/gpt2.txt)):
+**Measured on a GPU** (NVIDIA A100-SXM4-80GB, 8-token prompt;
+[`gpt2.txt`](../benchmarks/NVIDIA_A100_SXM4_80GB/gpt2.txt),
+[`gpt2_xl.txt`](../benchmarks/NVIDIA_A100_SXM4_80GB/gpt2_xl.txt)):
 
-| Weights | Prompt logits: max \|diff\| / max \|logit\| | Next-token argmax agrees (prompt positions) | Greedy tokens identical to Hugging Face |
-|---|---|---|---|
-| FP32 | **1.37e-6** | 100% | **32 / 32** |
-| FP16 | 3.20e-4 | 100% | 32 / 32 |
-| INT8, per-row scale | 1.77e-2 | 100% | 4 / 32 |
+| Model | Weights | Prompt logits: max \|diff\| / max \|logit\| | Next-token argmax agrees (prompt positions) | Greedy tokens identical to Hugging Face |
+|---|---|---|---|---|
+| GPT-2 (124M) | FP32 | **1.37e-6** | 100% | **32 / 32** |
+| GPT-2 (124M) | FP16 | 3.20e-4 | 100% | 32 / 32 |
+| GPT-2 (124M) | INT8, per-row scale | 1.77e-2 | 100% | 4 / 32 |
+| GPT-2 XL (1.5B) | FP32 | **1.05e-6** | 100% | **32 / 32** |
+| GPT-2 XL (1.5B) | FP16 | 1.59e-4 | 100% | 32 / 32 |
+| GPT-2 XL (1.5B) | INT8, per-row scale | 7.63e-3 | 100% | **32 / 32** |
 
-- **The kernels are correct inside the full model.** FP32 agrees with Hugging Face to 1.4e-6
-  of the logit scale (the limit was 1e-3), and the generated text is identical.
-- **FP16 weights** change the logits by 0.03% and the text not at all over 32 tokens.
-- **INT8 weights** change the logits by 1.8% of the logit scale. Every next-token choice on the
-  prompt still matched, but greedy generation picked a different token at position 5, and from
-  there the two texts differ (each later token is conditioned on the earlier ones). This is
-  per-row INT8 with no calibration, applied to every layer including the LM head; which of those
-  contributes most was not measured.
+- **The kernels are correct inside the full model,** for both sizes. FP32 agrees with Hugging
+  Face to about 1e-6 of the logit scale (the limit was 1e-3), and the generated text is identical.
+- **FP16 weights** change the logits by 0.02–0.03% and the text not at all over 32 tokens.
+- **INT8 weights** change GPT-2 small's logits by 1.8% of the logit scale. Every next-token
+  choice on the prompt still matched, but greedy generation picked a different token at position
+  5, and from there the two texts differ (each later token is conditioned on the earlier ones).
+  On GPT-2 XL the INT8 error is 0.8% and all 32 tokens match. This is per-row INT8 with no
+  calibration, applied to every layer including the LM head; why the larger model is less
+  affected, and which layers contribute most, was not measured. 32 tokens from one prompt is a
+  spot check, not a quality evaluation (no perplexity was measured).
 
 ## 5. How the speed is measured
 
@@ -120,9 +126,7 @@ the same prompt position each time:
 | ours, INT8 weights, 2 rows/warp | INT8 | this project (`gemv_int8_multirow`, R = 2) |
 | Hugging Face, FP16 | FP16 | PyTorch eager, FP16 activations too |
 
-**How to read it (predictions, not measurements yet):**
-
-These were written before the run; the measured results follow below.
+**How to read it (predictions written before the runs):**
 
 - Every row includes Python and launch overhead: about 15 kernel launches per layer per token.
   For **GPT-2 small** (124M parameters, 12 layers, 0.5 GB of FP32 weights) that overhead is
@@ -154,16 +158,48 @@ These were written before the run; the measured results follow below.
 
 1. **GPT-2 small at batch 1 is launch-bound, as predicted.** Cutting the weights 4× (494 →
    124 MB) changed our time by only 3.6% (1.636 → 1.577 ms). Reading 494 MB at ~2 TB/s takes
-   about 0.25 ms, and about 185 kernel launches per token fill the rest: ~1.6 ms / 185 ≈ 8.7 µs
+   about 0.25 ms, and about 185 kernel launches per token fill the rest: ~1.6 ms / 185 ≈ 8.5–8.8 µs
    per launch including dispatch. While the CPU is the bottleneck the GPU waits between
    kernels, so faster kernels barely change the wall time.
 2. **The 5.5× over Hugging Face is overhead, not faster kernels.** Hugging Face FP32 and FP16
    take the same 9.0 ms although FP16 reads half the bytes and uses Tensor Cores, so Hugging
    Face is overhead-bound too. Ours is faster because one decoder layer is one C++ call instead
    of a stack of Python modules. Do not quote it as a kernel speedup.
-3. **To see the weight format matter, the model must be larger** (GPT-2 XL: 6.2 GB of FP32
-   weights, about 3 ms per token to read at 2 TB/s), or the launches must go away (CUDA Graphs,
-   fused glue kernels). GPT-2 XL: not measured yet.
+3. **To see the weight format matter, the model must be larger** (GPT-2 XL, below), or the
+   launches must go away (CUDA Graphs, fused glue kernels).
+
+### Measured: GPT-2 XL (1.5B) on the same A100-SXM4-80GB
+
+[`benchmarks/NVIDIA_A100_SXM4_80GB/gpt2_xl.csv`](../benchmarks/NVIDIA_A100_SXM4_80GB/gpt2_xl.csv);
+same settings. 48 layers, n_embd = 1600; one layer's FP32 weights (123 MB) are larger than the
+40 MB L2, so every token reads all weights from DRAM.
+
+| Implementation | Weights read per token | ms / token | tokens / s | vs Hugging Face FP32 | vs our FP32 |
+|---|---|---|---|---|---|
+| Hugging Face, FP32 | 6,230 MB | 34.143 | 29.3 | 1.00× | – |
+| ours, FP32 weights | 6,220 MB | 7.537 | 132.7 | 4.53× | 1.00× |
+| ours, FP16 weights | 3,110 MB | 6.524 | 153.3 | 5.23× | 1.16× |
+| ours, INT8, 1 row/warp | 1,558 MB | 6.711 | 149.0 | 5.09× | 1.12× |
+| ours, INT8, 2 rows/warp | 1,558 MB | 6.509 | 153.6 | 5.25× | 1.16× |
+| Hugging Face, FP16 | 3,115 MB | 36.017 | 27.8 | 0.95× | – |
+
+1. **The weight format now shows up, but only once.** FP32 → FP16 saves 1.0 ms per token
+   (1.16×). FP16 → INT8 saves nothing (6.524 vs 6.509 ms), although INT8 reads half the bytes.
+2. **FP16 and INT8 sit on the launch floor.** About 725 launches per token (48 layers × 15 + 5)
+   at the ~8.5 µs per launch measured on GPT-2 small give **≈ 6.2 ms**; FP16 and INT8 measure
+   6.5 ms. Reading the weights takes far less: about 1.8 ms (FP16) and 0.9 ms (INT8) at 85% of
+   the ~2.0 TB/s peak, so the GPU finishes each kernel before the CPU has launched the next.
+   INT8's smaller weights can't make a CPU-bound loop faster.
+3. **FP32 is above the floor** (7.5 ms; reading 6.2 GB takes about 3.6 ms at 85% of peak). The
+   likely reason: its largest GEMVs take longer than the launch interval (an XL MLP layer is
+   41 MB in FP32, ~24 µs), so in those parts of the step the GPU, not the CPU, is the
+   bottleneck. Not verified with a timeline.
+4. **The ~5× over Hugging Face is again overhead.** Hugging Face FP16 (36.0 ms) is no faster
+   than FP32 (34.1 ms): it is overhead-bound as well.
+5. **Conclusion for INT8 end to end:** at batch 1 with ~15 launches per layer, the GEMV's 3.2×
+   (12_results §9.2) cannot reach tokens per second, because the kernel time is hidden behind
+   the launch time. The next step would be removing launches (CUDA Graphs over the decode step,
+   fusing bias/GELU/residual into the GEMV and LayerNorm kernels), not faster GEMVs.
 
 ## 6. How to run it
 
@@ -200,7 +236,10 @@ the folder name used by `run_all.sh`, e.g. `NVIDIA_A100_SXM4_40GB`.
 > preallocated, so the attention kernel got a capacity parameter for the per-head stride, tested
 > with NaN in the unused rows. I verify against Hugging Face by comparing logits at every prompt
 > position and the greedy text token by token: in FP32 the logits agree to 1.4e-6 and all 32
-> generated tokens match. For speed, GPT-2 small at batch 1 turned out launch-bound, as I
-> predicted: cutting the weights 4× with INT8 changed the time per token by under 4%. My version
-> was 5.5× faster than Hugging Face, but Hugging Face FP32 and FP16 took the same time, so that
-> gap is framework overhead, not my kernels, and I don't present it as a kernel result."
+> generated tokens match, for GPT-2 small and XL. For speed, decoding at batch 1 turned out
+> launch-bound: about 15 launches per layer at ~8.5 µs each. On GPT-2 XL that floor is about
+> 6.2 ms per token, FP16 and INT8 both measure 6.5 ms, and only FP32 (7.5 ms) is above it, so
+> INT8's 3.2× GEMV speedup doesn't reach tokens per second. The fix would be fewer launches, CUDA
+> Graphs and fused glue, not faster GEMVs. My version was ~5× faster than Hugging Face eager, but
+> Hugging Face FP32 and FP16 took the same time, so that gap is framework overhead, not my
+> kernels, and I don't present it as a kernel result."

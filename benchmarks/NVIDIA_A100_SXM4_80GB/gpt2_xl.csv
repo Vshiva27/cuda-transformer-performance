@@ -1,0 +1,7 @@
+gpu,model,impl,weight_mb,ms_per_token,tokens_per_s,prompt_tokens,generated_tokens
+NVIDIA A100-SXM4-80GB,gpt2-xl,"Hugging Face, FP32",6230.4,34.1430,29.29,8,128
+NVIDIA A100-SXM4-80GB,gpt2-xl,"ours, FP32 weights",6219.9,7.5369,132.68,8,128
+NVIDIA A100-SXM4-80GB,gpt2-xl,"ours, FP16 weights",3109.9,6.5245,153.27,8,128
+NVIDIA A100-SXM4-80GB,gpt2-xl,"ours, INT8 weights, 1 row/warp",1557.9,6.7110,149.01,8,128
+NVIDIA A100-SXM4-80GB,gpt2-xl,"ours, INT8 weights, 2 rows/warp",1557.9,6.5090,153.63,8,128
+NVIDIA A100-SXM4-80GB,gpt2-xl,"Hugging Face, FP16",3115.2,36.0174,27.76,8,128

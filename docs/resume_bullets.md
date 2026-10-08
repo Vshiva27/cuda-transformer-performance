@@ -101,7 +101,8 @@ interviewer will pick one number and dig.
 | "faster than PyTorch" (in general) | only for specific ops and shapes, in FP32 eager mode, on a T4. PyTorch's attention and GEMMs were faster than ours |
 | "implemented FlashAttention" | it's FlashAttention-*style* (online softmax, no score matrix), without the tiling and Tensor Cores that make FlashAttention fast |
 | "optimized Tensor Core GEMM" | it uses Tensor Cores, but the profiler shows they are starved of data |
-| "5.5× faster than Hugging Face" for GPT-2 | Hugging Face FP32 and FP16 took the same 9.0 ms, so the gap is Python/framework overhead (one C++ call per layer vs Python modules), not kernel speed; and the model was launch-bound for every weight format |
+| "5× faster than Hugging Face" for GPT-2 | Hugging Face FP32 and FP16 took the same time (9.0 ms small, 34–36 ms XL), so the gap is Python/framework overhead (one C++ call per layer vs Python modules), not kernel speed |
+| "INT8 makes GPT-2 decoding faster" | end to end it doesn't: at batch 1, FP16 and INT8 both sit on the ~6.2 ms launch floor of GPT-2 XL (6.52 vs 6.51 ms); only FP32 → FP16 helped (1.16×) |
 | "LLM inference engine" / "served a model" | GPT-2 runs on the kernels (real weights and tokenizer, batch 1, greedy) to verify them against Hugging Face, but there is no serving, batching, scheduling or prefill kernel: that is not an engine |
 | "INT8/INT4 quantization" or "4× faster with INT8" | only INT8 weight-only for the decode GEMV, no INT4; measured on an A100 only: 2.7–3.2× over FP32 weights with the 2-rows-per-warp kernel (2.1–2.7× with the first one), never the 4× that bytes alone predict |
 | "quantized a model" / model accuracy | the weights are random matrices; the error numbers are per-layer output errors, not model quality |
