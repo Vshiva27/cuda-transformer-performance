@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="380" viewBox="0 0 800 380" role="img" aria-labelledby="t d">
   <title id="t">KV cache: cost of generating one token</title>
-  <desc id="d">Context 128, 512, 1024, 2048. With KV cache: 0.0341606, 0.128671, 0.255007, 0.507361 ms. Recomputing attention: 0.0385024, 0.309606, 1.09015, 3.50264 ms.</desc>
+  <desc id="d">Context 128, 512, 1024, 2048. With KV cache: 0.0343296, 0.12885, 0.255155, 0.507709 ms. Recomputing attention: 0.0387584, 0.310682, 1.09568, 3.49373 ms.</desc>
   <style>
     .title { font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     .sub   { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
@@ -59,13 +59,13 @@
   <text class="tick" x="630" y="362" text-anchor="end">context length (tokens)</text>
   <line class="ref" x1="630" y1="212.6" x2="630" y2="157.8"/>
   <text class="value" x="620" y="189.7" text-anchor="end">7× cheaper</text>
-  <polyline class="line l3" points="84,285.7 357,226.6 493.5,190.9 630,157.8"/>
-  <circle class="s3 ring" cx="84" cy="285.7" r="4.5"/>
-  <circle class="s3 ring" cx="357" cy="226.6" r="4.5"/>
-  <circle class="s3 ring" cx="493.5" cy="190.9" r="4.5"/>
+  <polyline class="line l3" points="84,285.6 357,226.5 493.5,190.7 630,157.8"/>
+  <circle class="s3 ring" cx="84" cy="285.6" r="4.5"/>
+  <circle class="s3 ring" cx="357" cy="226.5" r="4.5"/>
+  <circle class="s3 ring" cx="493.5" cy="190.7" r="4.5"/>
   <circle class="s3 ring" cx="630" cy="157.8" r="4.5"/>
-  <polyline class="line l1" points="84,289.1 357,251.5 493.5,232.1 630,212.6"/>
-  <circle class="s1 ring" cx="84" cy="289.1" r="4.5"/>
+  <polyline class="line l1" points="84,289 357,251.5 493.5,232.1 630,212.6"/>
+  <circle class="s1 ring" cx="84" cy="289" r="4.5"/>
   <circle class="s1 ring" cx="357" cy="251.5" r="4.5"/>
   <circle class="s1 ring" cx="493.5" cy="232.1" r="4.5"/>
   <circle class="s1 ring" cx="630" cy="212.6" r="4.5"/>

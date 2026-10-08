@@ -433,8 +433,22 @@ Experiments in `bench_quantization`:
 **Verified before any GPU run** (CPU, g++): `cpu::quantize_int8` reproduces the hand example above
 exactly (q = [30, −127, 79, 5], scale = 0.5/127). The bound |y_int8 − y_exact| ≤ scale/2 · Σ|x|
 holds for every output. On a 64 × 1000 matrix with one outlier (50), the relative RMS error is
-2.5% with per-row scales and 21% with a per-tensor scale. The GPU timings are not measured yet;
-they go into `benchmarks/<GPU>/quantization.*` with the next run.
+2.5% with per-row scales and 21% with a per-tensor scale.
+
+**Measured on an A100** ([12_results §9.1](12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9)),
+7B-class shapes, weights larger than L2:
+
+- **FP16 matched the prediction:** 1.89–1.92× faster than FP32, at 83–86% of peak bandwidth.
+- **INT8 missed it:** 2.1–2.7× faster than FP32 instead of ~4×, and only 1.10–1.41× faster than
+  FP16. INT8 reaches just 46–61% of DRAM peak, so something other than DRAM bandwidth limits it.
+  Likely suspects (unverified until the `quantization` Nsight Compute case runs): 4× more x
+  reads, conversions and FMAs per byte of W, and short 4 KB rows.
+- **GPT-2-small shapes** (weights fit in L2) take 5–7 µs in every format; INT8 gains ≤ 1.09×.
+- **Accuracy:** INT8 adds 0.4% relative RMS error on uniform weights (FP16: 0.02%). With 16
+  outliers, per-tensor scales give 20% error; per-row scales give 1.5%.
+
+The lesson for interviews: fewer bytes only help while bytes are the bottleneck. Halving them
+once (FP16) moved the full 2×; halving them again exposed the next limit inside the kernel.
 
 What this does **not** do: INT4 or group-wise scales (one scale per 64–128 weights), INT8 Tensor
 Cores or activation quantization (W8A8), calibration on a real model (the weights are random),

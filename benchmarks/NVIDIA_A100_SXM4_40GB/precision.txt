@@ -21,43 +21,43 @@ Experiment A: square GEMM speed (A, B in the stated precision; C in FP32)
 
 n = 256
   variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
-  fp32 v3 tiled-32       |     0.0151 |     2220.1 |            - |     6.17e-07
-  fp32 v4 register       |     0.0503 |      667.6 |        1.00x |     6.17e-07
-  fp16 tiled, fp32 acc   |     0.0147 |     2281.9 |        3.42x |     5.68e-07
-  fp16 tiled, fp16 acc   |     0.0137 |     2456.4 |        3.68x |     6.16e-03
-  v5 WMMA, fp32 acc      |     0.0074 |     4526.0 |        6.78x |     1.33e-06
+  fp32 v3 tiled-32       |     0.0152 |     2214.1 |            - |     6.17e-07
+  fp32 v4 register       |     0.0502 |      668.5 |        1.00x |     6.17e-07
+  fp16 tiled, fp32 acc   |     0.0147 |     2278.7 |        3.41x |     5.68e-07
+  fp16 tiled, fp16 acc   |     0.0136 |     2463.8 |        3.69x |     6.16e-03
+  v5 WMMA, fp32 acc      |     0.0074 |     4538.5 |        6.79x |     1.33e-06
 
 n = 512
   variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
-  fp32 v3 tiled-32       |     0.0678 |     3959.9 |            - |     8.41e-07
-  fp32 v4 register       |     0.0980 |     2738.7 |        1.00x |     8.41e-07
-  fp16 tiled, fp32 acc   |     0.0659 |     4074.4 |        1.49x |     7.98e-07
-  fp16 tiled, fp16 acc   |     0.0604 |     4441.6 |        1.62x |     6.74e-03
-  v5 WMMA, fp32 acc      |     0.0229 |    11713.3 |        4.28x |     1.91e-06
+  fp32 v3 tiled-32       |     0.0679 |     3956.3 |            - |     8.41e-07
+  fp32 v4 register       |     0.0979 |     2743.2 |        1.00x |     8.41e-07
+  fp16 tiled, fp32 acc   |     0.0659 |     4070.6 |        1.48x |     7.98e-07
+  fp16 tiled, fp16 acc   |     0.0605 |     4438.6 |        1.62x |     6.74e-03
+  v5 WMMA, fp32 acc      |     0.0229 |    11702.9 |        4.27x |     1.91e-06
 
 n = 1024
   variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
-  fp32 v3 tiled-32       |     0.4181 |     5135.8 |            - |     1.49e-06
-  fp32 v4 register       |     0.3007 |     7140.9 |        1.00x |     1.49e-06
-  fp16 tiled, fp32 acc   |     0.4061 |     5287.6 |        0.74x |     1.48e-06
-  fp16 tiled, fp16 acc   |     0.3695 |     5812.5 |        0.81x |     1.06e-02
-  v5 WMMA, fp32 acc      |     0.1304 |    16474.1 |        2.31x |     2.88e-06
+  fp32 v3 tiled-32       |     0.4181 |     5136.8 |            - |     1.49e-06
+  fp32 v4 register       |     0.3007 |     7141.4 |        1.00x |     1.49e-06
+  fp16 tiled, fp32 acc   |     0.4059 |     5290.8 |        0.74x |     1.48e-06
+  fp16 tiled, fp16 acc   |     0.3694 |     5813.1 |        0.81x |     1.06e-02
+  v5 WMMA, fp32 acc      |     0.1302 |    16492.2 |        2.31x |     2.88e-06
 
 n = 2048
   variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
-  fp32 v3 tiled-32       |     3.1776 |     5406.6 |            - |            -
-  fp32 v4 register       |     2.1148 |     8123.8 |        1.00x |            -
-  fp16 tiled, fp32 acc   |     3.0783 |     5580.9 |        0.69x |            -
-  fp16 tiled, fp16 acc   |     2.8158 |     6101.2 |        0.75x |            -
-  v5 WMMA, fp32 acc      |     1.0272 |    16725.4 |        2.06x |            -
+  fp32 v3 tiled-32       |     3.1762 |     5408.9 |            - |            -
+  fp32 v4 register       |     2.1211 |     8099.5 |        1.00x |            -
+  fp16 tiled, fp32 acc   |     3.0764 |     5584.4 |        0.69x |            -
+  fp16 tiled, fp16 acc   |     2.8125 |     6108.4 |        0.75x |            -
+  v5 WMMA, fp32 acc      |     1.0235 |    16785.6 |        2.07x |            -
 
 n = 4096
   variant                |         ms |    GFLOP/s |   vs fp32 v4 |   scaled err
-  fp32 v3 tiled-32       |    25.7779 |     5331.7 |            - |            -
-  fp32 v4 register       |    16.5681 |     8295.4 |        1.00x |            -
-  fp16 tiled, fp32 acc   |    26.3059 |     5224.6 |        0.63x |            -
-  fp16 tiled, fp16 acc   |    23.7635 |     5783.6 |        0.70x |            -
-  v5 WMMA, fp32 acc      |     7.7756 |    17675.6 |        2.13x |            -
+  fp32 v3 tiled-32       |    25.7932 |     5328.5 |            - |            -
+  fp32 v4 register       |    16.5598 |     8299.5 |        1.00x |            -
+  fp16 tiled, fp32 acc   |    26.3387 |     5218.1 |        0.63x |            -
+  fp16 tiled, fp16 acc   |    23.7682 |     5782.5 |        0.70x |            -
+  v5 WMMA, fp32 acc      |     7.7691 |    17690.5 |        2.13x |            -
 
 
 Experiment B: error vs K (M = N = 64, inputs uniform in [-1, 1])
@@ -85,24 +85,24 @@ Experiment C: overflow. Inputs in [0, 8], K = 8192; FP16 maximum = 65504
 Experiment D: Transformer GEMMs, prefill of 512 tokens (GPT-2 small)
 
 QKV projection (512 x 2304 x 768)
-  fp32 v3 tiled-32       |     0.3464 ms |     5231.4 GFLOP/s
-  fp32 v4 register       |     0.2264 ms |     8003.8 GFLOP/s
-  fp16 tiled, fp32 acc   |     0.3363 ms |     5388.2 GFLOP/s
+  fp32 v3 tiled-32       |     0.3463 ms |     5232.6 GFLOP/s
+  fp32 v4 register       |     0.2262 ms |     8010.3 GFLOP/s
+  fp16 tiled, fp32 acc   |     0.3362 ms |     5388.8 GFLOP/s
   fp16 tiled, fp16 acc   |     0.3060 ms |     5921.1 GFLOP/s
-  v5 WMMA, fp32 acc      |     0.1080 ms |    16785.0 GFLOP/s
+  v5 WMMA, fp32 acc      |     0.1080 ms |    16775.4 GFLOP/s
 
 MLP up (512 x 3072 x 768)
-  fp32 v3 tiled-32       |     0.4685 ms |     5156.5 GFLOP/s
-  fp32 v4 register       |     0.3393 ms |     7120.5 GFLOP/s
-  fp16 tiled, fp32 acc   |     0.4540 ms |     5321.9 GFLOP/s
-  fp16 tiled, fp16 acc   |     0.4133 ms |     5844.8 GFLOP/s
-  v5 WMMA, fp32 acc      |     0.1631 ms |    14814.1 GFLOP/s
+  fp32 v3 tiled-32       |     0.4685 ms |     5156.7 GFLOP/s
+  fp32 v4 register       |     0.3398 ms |     7110.6 GFLOP/s
+  fp16 tiled, fp32 acc   |     0.4544 ms |     5316.4 GFLOP/s
+  fp16 tiled, fp16 acc   |     0.4139 ms |     5837.0 GFLOP/s
+  v5 WMMA, fp32 acc      |     0.1638 ms |    14751.1 GFLOP/s
 
 MLP down (512 x 768 x 3072)
-  fp32 v3 tiled-32       |     0.5089 ms |     4746.9 GFLOP/s
-  fp32 v4 register       |     0.5704 ms |     4235.4 GFLOP/s
-  fp16 tiled, fp32 acc   |     0.4940 ms |     4890.9 GFLOP/s
-  fp16 tiled, fp16 acc   |     0.4505 ms |     5363.3 GFLOP/s
-  v5 WMMA, fp32 acc      |     0.1614 ms |    14966.4 GFLOP/s
+  fp32 v3 tiled-32       |     0.5096 ms |     4741.2 GFLOP/s
+  fp32 v4 register       |     0.5698 ms |     4239.7 GFLOP/s
+  fp16 tiled, fp32 acc   |     0.4943 ms |     4887.1 GFLOP/s
+  fp16 tiled, fp16 acc   |     0.4512 ms |     5355.0 GFLOP/s
+  v5 WMMA, fp32 acc      |     0.1615 ms |    14960.7 GFLOP/s
 
 (Decode shapes with M = 1 are not run with WMMA: it needs M to be a multiple of 16. See docs/08.)

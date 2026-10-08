@@ -210,3 +210,29 @@ Resource usage:
   REG:32 STACK:0 SHARED:8320 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
  Function void batched_gemm_kernel<32, true>(float const*, float const*, float*, int, int, int, float, bool, int):
   REG:32 STACK:0 SHARED:8320 LOCAL:0 CONSTANT[0]:400 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+member /content/cuda-performance-project/build/libctp_core.a:gemv.cu.o:
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /content/cuda-performance-project/kernels/gemv.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function void gemv_kernel<signed char, false>(signed char const*, float const*, float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void gemv_kernel<signed char, true>(signed char const*, float const*, float const*, float*, int, int):
+  REG:36 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void gemv_kernel<__half, false>(__half const*, float const*, float const*, float*, int, int):
+  REG:31 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void gemv_kernel<__half, true>(__half const*, float const*, float const*, float*, int, int):
+  REG:32 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void gemv_kernel<float, false>(float const*, float const*, float const*, float*, int, int):
+  REG:30 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function void gemv_kernel<float, true>(float const*, float const*, float const*, float*, int, int):
+  REG:36 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:392 TEXTURE:0 SURFACE:0 SAMPLER:0

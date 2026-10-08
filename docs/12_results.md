@@ -352,7 +352,7 @@ a ratio of 1.22, matching the measured 1.21× fusion speedup.
 > generated `summary.md`), profiler reports:
 > [`profiling/reports/NVIDIA_A100_SXM4_40GB/`](../profiling/reports/NVIDIA_A100_SXM4_40GB/),
 > charts: [`assets/NVIDIA_A100_SXM4_40GB/`](../assets/NVIDIA_A100_SXM4_40GB/). Same code, same
-> benchmarks as the T4 sections above. 6/6 tests pass.
+> benchmarks as the T4 sections above, plus INT8 quantization (§9.1). 7/7 tests pass.
 
 | Field | Value |
 |---|---|
@@ -360,54 +360,104 @@ a ratio of 1.22, matching the measured 1.21× fusion speedup.
 | Compute capability | 8.0 (Ampere) |
 | Peak (as reported by the benchmarks) | 1,555.2 GB/s DRAM, 19,492 GFLOP/s FP32 (CUDA cores, 1.41 GHz) |
 | Driver / CUDA | 580.82.07 / CUDA 13.0 (nvcc 13.0.88), PyTorch 2.11.0+cu130 |
-| TF32 | off for all FP32 rows (measured separately: cuBLAS TF32 1024³ = 67,509 GFLOP/s) |
+| TF32 | off for all FP32 rows (measured separately: cuBLAS TF32 1024³ = 67,498 GFLOP/s) |
 
 ### T4 vs A100, in % of each GPU's peak
 
 | Kernel | Size | T4 | A100 |
 |---|---|---|---|
-| Vector add (naive) | n = 2²⁶ | 82% (262.7 GB/s) | **88%** (1,368.9 GB/s) |
-| Softmax v2 block/row | 12288×1024 | 76% | **80%** (1,249.1 GB/s) |
-| LayerNorm v3 | 8192×4096 | 72% | **86%** (1,334.4 GB/s) |
-| GEMM v4 register 4×4 | 1024³ | 27% (2,236 GFLOP/s) | **37%** (7,144 GFLOP/s) |
-| GEMM v4 register 4×4 | 4096³ | – | **43%** (8,297 GFLOP/s) |
-| cuBLAS FP32 | 1024³ | 46% (3,730 GFLOP/s) | **82%** (15,911 GFLOP/s) |
-| GEMM v4 as a fraction of cuBLAS FP32 | 1024³ | 0.60× | 0.45× |
+| Vector add (naive) | n = 2²⁶ | 82% (262.7 GB/s) | **88%** (1,368.5 GB/s) |
+| Softmax v2 block/row | 12288×1024 | 76% | **80%** (1,251.6 GB/s) |
+| LayerNorm v3 | 8192×4096 | 72% | **86%** (1,335.4 GB/s) |
+| GEMM v4 register 4×4 | 1024³ | 27% (2,236 GFLOP/s) | **37%** (7,143 GFLOP/s) |
+| GEMM v4 register 4×4 | 4096³ | – | **43%** (8,292 GFLOP/s) |
+| cuBLAS FP32 | 1024³ | 46% (3,730 GFLOP/s) | **85%** (16,626 GFLOP/s) |
+| GEMM v4 as a fraction of cuBLAS FP32 | 1024³ | 0.60× | 0.43× |
 
 ### Summary table (A100)
 
 | Operation | Size | Precision | CPU (1 thread) | PyTorch | CUDA basic | CUDA optimized | Basic → optimized |
 |---|---|---|---|---|---|---|---|
-| Vector add | n = 2²⁶ | FP32 | 65.02 ms | – | 0.588 ms (naive) | – (memory-bound: 88% of peak already) | – |
-| GEMM | 1024³ | FP32 | 319.58 ms | 0.135 ms (cuBLAS) | 7.420 ms (v1) | 0.301 ms (v4) | **24.7×** |
-| GEMM | 1024³ | FP16 in / FP32 acc | – | 0.023 ms (cuBLAS) | 0.406 ms (tiled, CUDA cores) | 0.130 ms (v5 WMMA) | 3.1× |
-| Softmax | 12288×1024 | FP32 | 273.49 ms | 0.080 ms | 0.824 ms (v1) | 0.081 ms (v2) | **10.2×** |
-| LayerNorm | 8192×4096 | FP32 | 135.14 ms | 0.295 ms | 3.563 ms (v1) | 0.201 ms (v3) | **17.7×** |
-| Add + LayerNorm | 8192×4096 | FP32 | – | 0.588 ms (2 kernels) | 0.500 ms (ours, 2 kernels) | 0.406 ms (fused) | 1.23× |
-| Attention (causal) | 12×2048×64 | FP32 | – | – | 3.270 ms (unfused) | 3.491 ms (fused) | 0.94× (fused is slower) |
-| Attention decode | 1 × 2048 ctx | FP32 | – | – | 3.503 ms (recompute) | 0.507 ms (KV cache) | **6.9×** |
+| Vector add | n = 2²⁶ | FP32 | 63.88 ms | – | 0.588 ms (naive) | – (memory-bound: 88% of peak already) | – |
+| GEMM | 1024³ | FP32 | 223.48 ms | 0.129 ms (cuBLAS) | 7.416 ms (v1) | 0.301 ms (v4) | **24.7×** |
+| GEMM | 1024³ | FP16 in / FP32 acc | – | 0.022 ms (cuBLAS) | 0.406 ms (tiled, CUDA cores) | 0.130 ms (v5 WMMA) | 3.1× |
+| Softmax | 12288×1024 | FP32 | 256.34 ms | 0.081 ms | 0.822 ms (v1) | 0.080 ms (v2) | **10.2×** |
+| LayerNorm | 8192×4096 | FP32 | 136.92 ms | 0.294 ms | 3.565 ms (v1) | 0.201 ms (v3) | **17.7×** |
+| Add + LayerNorm | 8192×4096 | FP32 | – | 0.590 ms (2 kernels) | 0.499 ms (ours, 2 kernels) | 0.404 ms (fused) | 1.24× |
+| Attention (causal) | 12×2048×64 | FP32 | – | – | 3.269 ms (unfused) | 3.487 ms (fused) | 0.94× (fused is slower) |
+| Attention decode | 1 × 2048 ctx | FP32 | – | – | 3.494 ms (recompute) | 0.508 ms (KV cache) | **6.9×** |
+| Decode GEMV, 7B-class MLP up | 11008×4096 | FP32 → INT8 weights | – | – | 0.1345 ms (FP32 weights) | 0.0606 ms (INT8 weights) | 2.2× |
+
+These numbers are from the second A100 run (the one that added quantization). The single-thread
+CPU baseline varies between runs on the shared Colab host (GEMM 1024³: 319.6 ms in the first run,
+223.5 ms here). GPU rows of the two runs agree within a few percent, except cuBLAS FP32 (+4%) and
+non-causal fused attention at seq 2048 (7.81 → 6.43 ms).
 
 ### What changed compared with the T4
 
-1. **Memory-bound kernels get closer to peak** (82–88% vs 72–82%). PyTorch now matches our
-   softmax (0.080 vs 0.081 ms) but is still behind our LayerNorm (0.295 vs 0.201 ms).
+1. **Memory-bound kernels get closer to peak** (80–88% vs 72–82%). PyTorch matches our
+   softmax (0.081 vs 0.080 ms) but is still behind our LayerNorm (0.294 vs 0.201 ms).
 2. **The gap to cuBLAS grew**, as predicted in [09 §21](09_benchmarking.md) item 4: cuBLAS FP32
-   goes from 46% to 82% of peak, our v4 only from 27% to 37%, so v4 falls from 0.60× to 0.45×
-   of cuBLAS. For FP16, cuBLAS (94.7 TFLOP/s) is **5.7×** faster than our WMMA kernel
+   goes from 46% to 85% of peak, our v4 only from 27% to 37%, so v4 falls from 0.60× to 0.43×
+   of cuBLAS. For FP16, cuBLAS (95.5 TFLOP/s) is **5.8×** faster than our WMMA kernel
    (16.5 TFLOP/s); the T4 ratio was 10.9×. WMMA vs FP32 v4 improves from 1.49× to 2.31×.
-3. **Large L2 shows up.** Softmax 4096×512 (8 MB in + 8 MB out) reaches 1,678.7 GB/s =
-   **108% of DRAM peak**, so that row measures L2, not DRAM (see 09 §21 item 2). Only rows
+3. **Large L2 shows up.** Softmax 4096×512 (8 MB in + 8 MB out) reaches 1,645 GB/s =
+   **106% of DRAM peak**, so that row measures L2, not DRAM (see 09 §21 item 2). Only rows
    larger than the 40 MB L2 are DRAM-bandwidth claims: vector add 2²⁶, softmax 12288×1024,
-   LayerNorm 8192×4096.
+   LayerNorm 8192×4096, the 7B-class GEMV rows.
 4. **The softmax ranking shifts with the L2.** At 4096×1024 (32 MB, fits in L2) warp/row and
-   block/row are close (1,095 vs 1,143 GB/s). At 12288×1024 (96 MB) warp/row drops to 794 GB/s
-   while block/row reaches 1,249. This is consistent with the T4 explanation (§8, question 2:
+   block/row are close (1,109 vs 1,141 GB/s). At 12288×1024 (96 MB) warp/row drops to 792 GB/s
+   while block/row reaches 1,252. This is consistent with the T4 explanation (§8, question 2:
    warp/row re-reads x from DRAM once its rows in flight exceed L2), but it was not separately
    verified with DRAM counters on the A100.
 5. **Fused causal attention is no longer faster** (0.94× vs 1.21× on the T4). Non-causal fused
-   attention was already slower on both GPUs (A100 seq 2048: 7.81 vs 4.08 ms unfused).
-6. **The KV-cache decode step did not get faster:** 0.507 ms on the A100 vs 0.503 ms on the T4
-   at 2,048 context, while recomputing got 4.3× faster (15.09 → 3.50 ms). So the speedup from
+   attention was already slower on both GPUs (A100 seq 2048: 6.43 vs 4.08 ms unfused).
+6. **The KV-cache decode step did not get faster:** 0.508 ms on the A100 vs 0.503 ms on the T4
+   at 2,048 context, while recomputing got 4.3× faster (15.09 → 3.49 ms). So the speedup from
    caching drops from 30× to 6.9×. One query row gives the decode kernel little parallel work,
    so a GPU with more SMs and bandwidth does not help it; that is the likely reason, not yet
    checked in the profiler.
+
+### 9.1 INT8 weight-only quantization (decode GEMV, docs/08 §9)
+
+Measured on the A100 only (the T4 run predates this kernel). One decoding step y = W x, FP32
+activations and accumulation; all three weight formats run the same kernel. Weights of 45–201 MB
+are larger than the 40 MB L2, so these rows measure DRAM. % = achieved GB/s (minimum bytes / time)
+as a share of the 1,555 GB/s peak.
+
+| Shape (N × K) | FP32 weights | FP16 weights | INT8 weights, per-row scale | INT8 vs FP32 | INT8 vs FP16 |
+|---|---|---|---|---|---|
+| 7B-class QKV (12288 × 4096) | 0.1445 ms, 90% | 0.0751 ms, 86% | 0.0534 ms, **61%** | 2.71× | 1.41× |
+| 7B-class MLP up (11008 × 4096) | 0.1345 ms, 86% | 0.0700 ms, 83% | 0.0606 ms, **48%** | 2.22× | 1.16× |
+| 7B-class MLP down (4096 × 11008) | 0.1310 ms, 89% | 0.0695 ms, 84% | 0.0631 ms, **46%** | 2.08× | 1.10× |
+
+**Prediction vs measurement.** The prediction was "time ∝ bytes of W": FP16 2×, INT8 4×. FP16
+held (1.89–1.92×, still 83–86% of peak). **INT8 did not:** 2.1–2.7× instead of 4×, because it
+reaches only 46–61% of DRAM peak, so DRAM bandwidth is no longer its limit. The kernels use no
+local memory (`resource_usage.txt`: `LOCAL:0`, 31–36 registers). Unverified explanations, to be
+checked with the `quantization` Nsight Compute case (not run yet):
+- per 16 bytes of weights, an INT8 lane also reads 64 bytes of x from L1 and executes 16
+  int-to-float conversions and 16 FMAs (FP32: 16 bytes of x, 4 FMAs), so the work per byte of W
+  is 4× higher, and instruction issue or L1 throughput may now be the limit;
+- each lane has one 16-byte load in flight per loop iteration, and an INT8 row is only 4 KB
+  (8 iterations), so the fixed per-row cost (warp reduction, store) is a larger share.
+
+**GPT-2-small decode shapes** (2–9 MB of FP32 weights, which fit in L2) take 4.9–6.7 µs in every
+format, and INT8 is only 1.02–1.09× faster than FP32: at this size the time is launch and
+latency, not bytes.
+
+**Accuracy** (N = K = 4096, error of y against the exact product of the original FP32 weights):
+
+| Weights | Storage | Rel. RMS error | Max error (fraction of max \|y\|) |
+|---|---|---|---|
+| uniform in [−1, 1] | FP16 | 1.8e-4 | 2.0e-4 |
+| uniform in [−1, 1] | INT8, per-row scale | 3.9e-3 | 3.9e-3 |
+| uniform in [−1, 1] | INT8, per-tensor scale | 3.9e-3 | 3.8e-3 |
+| + 16 outliers (\|w\| = 50) | FP16 | 1.8e-4 | 2.0e-4 |
+| + 16 outliers (\|w\| = 50) | INT8, per-row scale | 1.5e-2 | 1.3e-1 |
+| + 16 outliers (\|w\| = 50) | INT8, per-tensor scale | **2.0e-1** | 2.0e-1 |
+
+Without outliers, every row has max |w| ≈ 1, so per-row and per-tensor scales are nearly identical
+and give the same 0.4% error (21× FP16's). With 16 outliers, a per-tensor scale damages every
+output (20% RMS error); per-row scales keep the RMS error at 1.5%, with the damage concentrated in
+the 16 rows that contain an outlier (max error 13%).

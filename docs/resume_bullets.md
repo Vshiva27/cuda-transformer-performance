@@ -79,6 +79,6 @@ the "defend it" questions without notes. An interviewer will pick one number and
 | "implemented FlashAttention" | it's FlashAttention-*style* (online softmax, no score matrix), without the tiling and Tensor Cores that make FlashAttention fast |
 | "optimized Tensor Core GEMM" | it uses Tensor Cores, but the profiler shows they are starved of data |
 | "LLM inference engine" / "served a model" | no model weights, tokenizer or serving; these are the kernels such engines use |
-| "INT8/INT4 quantization" | only INT8 weight-only for the decode GEMV is implemented, no INT4; quote speedups only after the GPU run has measured them |
+| "INT8/INT4 quantization" | only INT8 weight-only for the decode GEMV, no INT4; measured 2.1–2.7× over FP32 weights on an A100, not 4×, and only 1.1–1.4× over FP16 |
 | any number from the † attention row | it was throttled; use the Nsight Systems numbers (4.12 / 5.08 ms at seq 1024) |
 | bandwidth numbers above 100% of peak | those rows measured the L2 cache, not DRAM |

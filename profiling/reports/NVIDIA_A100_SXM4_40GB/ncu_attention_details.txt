@@ -1,4 +1,4 @@
-[4593] profile_targets@127.0.0.1
+[4149] profile_targets@127.0.0.1
   void batched_gemm_kernel<32, 1>(const float *, const float *, float *, int, int, int, float, bool, int) (32, 32, 12)x(32, 32, 1), Context 1, Stream 7, Device 0, CC 8.0
     Section: GPU Speed Of Light Throughput
     ----------------------- ----------- ------------
@@ -6,14 +6,14 @@
     ----------------------- ----------- ------------
     DRAM Frequency                  Ghz         1.21
     SM Frequency                    Ghz         1.09
-    Elapsed Cycles                cycle      502,096
-    Memory Throughput                 %        79.53
-    DRAM Throughput                   %         5.51
-    Duration                         us       458.69
-    L1/TEX Cache Throughput           %        80.24
-    L2 Cache Throughput               %         7.85
-    SM Active Cycles              cycle   497,441.82
-    Compute (SM) Throughput           %        66.02
+    Elapsed Cycles                cycle      503,850
+    Memory Throughput                 %        79.43
+    DRAM Throughput                   %         5.48
+    Duration                         us       460.10
+    L1/TEX Cache Throughput           %        80.19
+    L2 Cache Throughput               %         7.95
+    SM Active Cycles              cycle   497,776.59
+    Compute (SM) Throughput           %        65.93
     ----------------------- ----------- ------------
 
     OPT   Memory is more heavily utilized than Compute: Look at the Memory Workload Analysis section to identify the L1 
@@ -26,10 +26,10 @@
     Metric Name          Metric Unit Metric Value
     -------------------- ----------- ------------
     Executed Ipc Active   inst/cycle         1.90
-    Executed Ipc Elapsed  inst/cycle         1.89
-    Issue Slots Busy               %        47.20
+    Executed Ipc Elapsed  inst/cycle         1.88
+    Issue Slots Busy               %        47.14
     Issued Ipc Active     inst/cycle         1.90
-    SM Busy                        %        47.20
+    SM Busy                        %        47.14
     -------------------- ----------- ------------
 
     INF   FMA is the highest-utilized pipeline (29.7%) based on elapsed cycles in the workload, taking into account the 
@@ -42,41 +42,41 @@
     -------------------------------------- ----------- ------------
     Local Memory Spilling Requests                                0
     Local Memory Spilling Request Overhead           %            0
-    Memory Throughput                          Gbyte/s        85.61
-    Mem Busy                                         %        79.53
-    Max Bandwidth                                    %        74.00
-    L1/TEX Hit Rate                                  %         3.52
+    Memory Throughput                          Gbyte/s        85.17
+    Mem Busy                                         %        79.43
+    Max Bandwidth                                    %        73.90
+    L1/TEX Hit Rate                                  %         3.59
     L2 Persisting Size                           Mbyte         7.86
     L2 Compression Success Rate                      %            0
     L2 Compression Ratio                                          0
     L2 Compression Input Sectors                sector            0
     L2 Hit Rate                                      %        95.67
-    Mem Pipes Busy                                   %        66.02
+    Mem Pipes Busy                                   %        65.93
     -------------------------------------- ----------- ------------
 
     Section: Memory Workload Analysis Tables
-    OPT   Est. Speedup: 10.1%                                                                                           
+    OPT   Est. Speedup: 9.982%                                                                                          
           The memory access pattern for shared stores might not be optimal and causes on average a 1.1 - way bank       
-          conflict across all 1572864 shared store requests.This results in 225909 bank conflicts,  which represent     
-          12.59% of the overall 1794255 wavefronts for shared stores. Check the Source Counters section for             
+          conflict across all 1572864 shared store requests.This results in 223429 bank conflicts,  which represent     
+          12.45% of the overall 1794779 wavefronts for shared stores. Check the Source Counters section for             
           uncoalesced shared stores.                                                                                    
 
     Section: Scheduler Statistics
     ---------------------------- ----------- ------------
     Metric Name                  Metric Unit Metric Value
     ---------------------------- ----------- ------------
-    One or More Eligible                   %        47.63
+    One or More Eligible                   %        47.60
     Issued Warp Per Scheduler                        0.48
-    No Eligible                            %        52.37
-    Active Warps Per Scheduler          warp        15.38
+    No Eligible                            %        52.40
+    Active Warps Per Scheduler          warp        15.39
     Eligible Warps Per Scheduler        warp         3.54
     ---------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 20.47%                                                                                    
+    OPT   Est. Local Speedup: 20.57%                                                                                    
           Every scheduler is capable of issuing one instruction per cycle, but for this workload each scheduler only    
           issues an instruction every 2.1 cycles. This might leave hardware resources underutilized and may lead to     
           less optimal performance. Out of the maximum of 16 warps per scheduler, this workload allocates an average    
-          of 15.38 active warps per scheduler, but only an average of 3.54 warps were eligible per cycle. Eligible      
+          of 15.39 active warps per scheduler, but only an average of 3.54 warps were eligible per cycle. Eligible      
           warps are the subset of active warps that are ready to issue their next instruction. Every cycle with no      
           eligible warp results in no instruction being issued and the issue slot remains unused. To increase the       
           number of eligible warps, avoid possible load imbalances due to highly different execution durations per      
@@ -86,18 +86,18 @@
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Warp Cycles Per Issued Instruction             cycle        32.29
-    Warp Cycles Per Executed Instruction           cycle        32.32
+    Warp Cycles Per Issued Instruction             cycle        32.33
+    Warp Cycles Per Executed Instruction           cycle        32.36
     Avg. Active Threads Per Warp                                   32
     Avg. Not Predicated Off Threads Per Warp                    31.63
     ---------------------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 20.47%                                                                                          
-          On average, each warp of this workload spends 13.9 cycles being stalled waiting for the MIO (memory           
+    OPT   Est. Speedup: 20.57%                                                                                          
+          On average, each warp of this workload spends 14.0 cycles being stalled waiting for the MIO (memory           
           input/output) instruction queue to be not full. This stall reason is high in cases of extreme utilization of  
           the MIO pipelines, which include special math instructions, dynamic branches, as well as shared memory        
           instructions. When caused by shared memory accesses, trying to use fewer but wider loads can reduce pipeline  
-          pressure. This stall type represents about 43.2% of the total average of 32.3 cycles between issuing two      
+          pressure. This stall type represents about 43.3% of the total average of 32.3 cycles between issuing two      
           instructions.                                                                                                 
     ----- --------------------------------------------------------------------------------------------------------------
     INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
@@ -136,8 +136,8 @@
     Block Limit Warps                     block            2
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        96.31
-    Achieved Active Warps Per SM           warp        61.64
+    Achieved Occupancy                        %        96.38
+    Achieved Active Warps Per SM           warp        61.68
     ------------------------------- ----------- ------------
 
     Section: Source Counters
@@ -157,14 +157,14 @@
     ----------------------- ----------- ------------
     DRAM Frequency                  Ghz         1.21
     SM Frequency                    Ghz         1.09
-    Elapsed Cycles                cycle      131,026
-    Memory Throughput                 %        49.06
-    DRAM Throughput                   %        49.06
-    Duration                         us       119.84
-    L1/TEX Cache Throughput           %        18.10
-    L2 Cache Throughput               %        45.24
-    SM Active Cycles              cycle   120,728.59
-    Compute (SM) Throughput           %        37.44
+    Elapsed Cycles                cycle      133,509
+    Memory Throughput                 %        49.05
+    DRAM Throughput                   %        49.05
+    Duration                         us       120.48
+    L1/TEX Cache Throughput           %        17.92
+    L2 Cache Throughput               %        45.78
+    SM Active Cycles              cycle   121,923.88
+    Compute (SM) Throughput           %        37.15
     ----------------------- ----------- ------------
 
     OPT   This workload exhibits low compute throughput and memory bandwidth utilization relative to the peak           
@@ -176,14 +176,14 @@
     -------------------- ----------- ------------
     Metric Name          Metric Unit Metric Value
     -------------------- ----------- ------------
-    Executed Ipc Active   inst/cycle         1.62
-    Executed Ipc Elapsed  inst/cycle         1.50
-    Issue Slots Busy               %        37.44
-    Issued Ipc Active     inst/cycle         1.62
-    SM Busy                        %        37.44
+    Executed Ipc Active   inst/cycle         1.61
+    Executed Ipc Elapsed  inst/cycle         1.48
+    Issue Slots Busy               %        37.15
+    Issued Ipc Active     inst/cycle         1.61
+    SM Busy                        %        37.15
     -------------------- ----------- ------------
 
-    INF   FMA is the highest-utilized pipeline (33.9%) based on elapsed cycles in the workload, taking into account the 
+    INF   FMA is the highest-utilized pipeline (33.6%) based on elapsed cycles in the workload, taking into account the 
           rates of its different instructions. It executes 32-bit floating point (FADD, FMUL, FMAD, ...) and integer    
           (IMUL, IMAD) operations. It is well-utilized, but should not be a bottleneck.                                 
 
@@ -193,34 +193,34 @@
     -------------------------------------- ----------- ------------
     Local Memory Spilling Requests                                0
     Local Memory Spilling Request Overhead           %            0
-    Memory Throughput                          Gbyte/s       762.49
-    Mem Busy                                         %        25.50
-    Max Bandwidth                                    %        49.06
+    Memory Throughput                          Gbyte/s       762.60
+    Mem Busy                                         %        25.79
+    Max Bandwidth                                    %        49.05
     L1/TEX Hit Rate                                  %        33.37
     L2 Persisting Size                           Mbyte         7.86
     L2 Compression Success Rate                      %            0
     L2 Compression Ratio                                          0
     L2 Compression Input Sectors                sector            0
-    L2 Hit Rate                                      %        60.69
-    Mem Pipes Busy                                   %         9.48
+    L2 Hit Rate                                      %        60.51
+    Mem Pipes Busy                                   %         9.40
     -------------------------------------- ----------- ------------
 
     Section: Scheduler Statistics
     ---------------------------- ----------- ------------
     Metric Name                  Metric Unit Metric Value
     ---------------------------- ----------- ------------
-    One or More Eligible                   %        41.58
-    Issued Warp Per Scheduler                        0.42
-    No Eligible                            %        58.42
-    Active Warps Per Scheduler          warp        13.89
-    Eligible Warps Per Scheduler        warp         0.96
+    One or More Eligible                   %        41.10
+    Issued Warp Per Scheduler                        0.41
+    No Eligible                            %        58.90
+    Active Warps Per Scheduler          warp        13.83
+    Eligible Warps Per Scheduler        warp         0.95
     ---------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 50.94%                                                                                    
+    OPT   Est. Local Speedup: 50.95%                                                                                    
           Every scheduler is capable of issuing one instruction per cycle, but for this workload each scheduler only    
           issues an instruction every 2.4 cycles. This might leave hardware resources underutilized and may lead to     
           less optimal performance. Out of the maximum of 16 warps per scheduler, this workload allocates an average    
-          of 13.89 active warps per scheduler, but only an average of 0.96 warps were eligible per cycle. Eligible      
+          of 13.83 active warps per scheduler, but only an average of 0.95 warps were eligible per cycle. Eligible      
           warps are the subset of active warps that are ready to issue their next instruction. Every cycle with no      
           eligible warp results in no instruction being issued and the issue slot remains unused. To increase the       
           number of eligible warps, avoid possible load imbalances due to highly different execution durations per      
@@ -230,19 +230,19 @@
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Warp Cycles Per Issued Instruction             cycle        33.42
-    Warp Cycles Per Executed Instruction           cycle        33.46
+    Warp Cycles Per Issued Instruction             cycle        33.66
+    Warp Cycles Per Executed Instruction           cycle        33.70
     Avg. Active Threads Per Warp                                25.11
     Avg. Not Predicated Off Threads Per Warp                    23.85
     ---------------------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 50.94%                                                                                          
-          On average, each warp of this workload spends 25.3 cycles being stalled waiting for a scoreboard dependency   
+    OPT   Est. Speedup: 50.95%                                                                                          
+          On average, each warp of this workload spends 25.6 cycles being stalled waiting for a scoreboard dependency   
           on a L1TEX (local, global, surface, texture) operation. Find the instruction producing the data being waited  
           upon to identify the culprit. To reduce the number of cycles waiting on L1TEX data accesses verify the        
           memory access patterns are optimal for the target architecture, attempt to increase cache hit rates by        
           increasing data locality (coalescing), or by changing the cache configuration. Consider moving frequently     
-          used data to shared memory. This stall type represents about 75.8% of the total average of 33.4 cycles        
+          used data to shared memory. This stall type represents about 76.2% of the total average of 33.7 cycles        
           between issuing two instructions.                                                                             
     ----- --------------------------------------------------------------------------------------------------------------
     INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
@@ -250,7 +250,7 @@
           (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-reference) provides more details    
           on each stall reason.                                                                                         
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 9.536%                                                                                          
+    OPT   Est. Speedup: 9.462%                                                                                          
           Instructions are executed in warps, which are groups of 32 threads. Optimal instruction throughput is         
           achieved if all 32 threads of a warp execute the same instruction. The chosen launch configuration, early     
           thread completion, and divergent flow control can significantly lower the number of active threads in a warp  
@@ -300,12 +300,12 @@
     Block Limit Warps                     block            8
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        84.78
-    Achieved Active Warps Per SM           warp        54.26
+    Achieved Occupancy                        %        84.55
+    Achieved Active Warps Per SM           warp        54.11
     ------------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 15.22%                                                                                          
-          The difference between calculated theoretical (100.0%) and measured achieved occupancy (84.8%) can be the     
+    OPT   Est. Speedup: 15.45%                                                                                          
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (84.5%) can be the     
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -327,15 +327,15 @@
     Metric Name             Metric Unit Metric Value
     ----------------------- ----------- ------------
     DRAM Frequency                  Ghz         1.21
-    SM Frequency                    Ghz         1.09
-    Elapsed Cycles                cycle      503,864
-    Memory Throughput                 %        75.84
-    DRAM Throughput                   %         8.01
-    Duration                         us       460.38
-    L1/TEX Cache Throughput           %        85.43
-    L2 Cache Throughput               %         8.32
-    SM Active Cycles              cycle   447,106.38
-    Compute (SM) Throughput           %        63.75
+    SM Frequency                    Ghz         1.10
+    Elapsed Cycles                cycle      506,949
+    Memory Throughput                 %        76.24
+    DRAM Throughput                   %         8.07
+    Duration                         us       456.90
+    L1/TEX Cache Throughput           %        85.46
+    L2 Cache Throughput               %         8.23
+    SM Active Cycles              cycle   446,988.11
+    Compute (SM) Throughput           %        64.08
     ----------------------- ----------- ------------
 
     OPT   Memory is more heavily utilized than Compute: Look at the Memory Workload Analysis section to identify the L1 
@@ -349,12 +349,12 @@
     -------------------- ----------- ------------
     Executed Ipc Active   inst/cycle         1.65
     Executed Ipc Elapsed  inst/cycle         1.47
-    Issue Slots Busy               %        36.67
+    Issue Slots Busy               %        36.86
     Issued Ipc Active     inst/cycle         1.65
-    SM Busy                        %        36.67
+    SM Busy                        %        36.86
     -------------------- ----------- ------------
 
-    INF   FMA is the highest-utilized pipeline (23.6%) based on elapsed cycles in the workload, taking into account the 
+    INF   FMA is the highest-utilized pipeline (23.7%) based on elapsed cycles in the workload, taking into account the 
           rates of its different instructions. It executes 32-bit floating point (FADD, FMUL, FMAD, ...) and integer    
           (IMUL, IMAD) operations. It is well-utilized, but should not be a bottleneck.                                 
 
@@ -364,34 +364,34 @@
     -------------------------------------- ----------- ------------
     Local Memory Spilling Requests                                0
     Local Memory Spilling Request Overhead           %            0
-    Memory Throughput                          Gbyte/s       124.61
-    Mem Busy                                         %        75.84
-    Max Bandwidth                                    %        72.38
-    L1/TEX Hit Rate                                  %         2.30
+    Memory Throughput                          Gbyte/s       125.44
+    Mem Busy                                         %        76.24
+    Max Bandwidth                                    %        72.75
+    L1/TEX Hit Rate                                  %         2.29
     L2 Persisting Size                           Mbyte         7.86
     L2 Compression Success Rate                      %            0
     L2 Compression Ratio                                          0
     L2 Compression Input Sectors                sector            0
-    L2 Hit Rate                                      %        64.72
-    Mem Pipes Busy                                   %        63.75
+    L2 Hit Rate                                      %        65.68
+    Mem Pipes Busy                                   %        64.08
     -------------------------------------- ----------- ------------
 
     Section: Scheduler Statistics
     ---------------------------- ----------- ------------
     Metric Name                  Metric Unit Metric Value
     ---------------------------- ----------- ------------
-    One or More Eligible                   %        41.33
+    One or More Eligible                   %        41.29
     Issued Warp Per Scheduler                        0.41
-    No Eligible                            %        58.67
-    Active Warps Per Scheduler          warp        14.94
+    No Eligible                            %        58.71
+    Active Warps Per Scheduler          warp        14.92
     Eligible Warps Per Scheduler        warp         3.07
     ---------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 24.16%                                                                                    
+    OPT   Est. Local Speedup: 23.76%                                                                                    
           Every scheduler is capable of issuing one instruction per cycle, but for this workload each scheduler only    
           issues an instruction every 2.4 cycles. This might leave hardware resources underutilized and may lead to     
           less optimal performance. Out of the maximum of 16 warps per scheduler, this workload allocates an average    
-          of 14.94 active warps per scheduler, but only an average of 3.07 warps were eligible per cycle. Eligible      
+          of 14.92 active warps per scheduler, but only an average of 3.07 warps were eligible per cycle. Eligible      
           warps are the subset of active warps that are ready to issue their next instruction. Every cycle with no      
           eligible warp results in no instruction being issued and the issue slot remains unused. To increase the       
           number of eligible warps, avoid possible load imbalances due to highly different execution durations per      
@@ -401,18 +401,18 @@
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Warp Cycles Per Issued Instruction             cycle        36.15
-    Warp Cycles Per Executed Instruction           cycle        36.19
+    Warp Cycles Per Issued Instruction             cycle        36.14
+    Warp Cycles Per Executed Instruction           cycle        36.18
     Avg. Active Threads Per Warp                                   32
     Avg. Not Predicated Off Threads Per Warp                    31.97
     ---------------------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 24.16%                                                                                          
+    OPT   Est. Speedup: 23.76%                                                                                          
           On average, each warp of this workload spends 16.6 cycles being stalled waiting for the MIO (memory           
           input/output) instruction queue to be not full. This stall reason is high in cases of extreme utilization of  
           the MIO pipelines, which include special math instructions, dynamic branches, as well as shared memory        
           instructions. When caused by shared memory accesses, trying to use fewer but wider loads can reduce pipeline  
-          pressure. This stall type represents about 45.8% of the total average of 36.2 cycles between issuing two      
+          pressure. This stall type represents about 45.8% of the total average of 36.1 cycles between issuing two      
           instructions.                                                                                                 
     ----- --------------------------------------------------------------------------------------------------------------
     INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
@@ -461,8 +461,8 @@
     Block Limit Warps                     block            2
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        93.36
-    Achieved Active Warps Per SM           warp        59.75
+    Achieved Occupancy                        %        93.34
+    Achieved Active Warps Per SM           warp        59.74
     ------------------------------- ----------- ------------
 
     Section: Source Counters
@@ -481,15 +481,15 @@
     Metric Name             Metric Unit Metric Value
     ----------------------- ----------- ------------
     DRAM Frequency                  Ghz         1.21
-    SM Frequency                    Ghz         1.09
-    Elapsed Cycles                cycle    2,289,986
-    Memory Throughput                 %        56.31
+    SM Frequency                    Ghz         1.10
+    Elapsed Cycles                cycle    2,321,830
+    Memory Throughput                 %        56.18
     DRAM Throughput                   %         0.29
     Duration                         ms         2.09
-    L1/TEX Cache Throughput           %        58.63
-    L2 Cache Throughput               %         6.63
-    SM Active Cycles              cycle 2,198,203.70
-    Compute (SM) Throughput           %        72.20
+    L1/TEX Cache Throughput           %        58.84
+    L2 Cache Throughput               %         6.72
+    SM Active Cycles              cycle 2,190,647.39
+    Compute (SM) Throughput           %        72.03
     ----------------------- ----------- ------------
 
     OPT   Compute is more heavily utilized than Memory: Look at the Compute Workload Analysis section to see what the   
@@ -500,17 +500,17 @@
     -------------------- ----------- ------------
     Metric Name          Metric Unit Metric Value
     -------------------- ----------- ------------
-    Executed Ipc Active   inst/cycle         2.93
+    Executed Ipc Active   inst/cycle         2.94
     Executed Ipc Elapsed  inst/cycle         2.81
-    Issue Slots Busy               %        70.30
-    Issued Ipc Active     inst/cycle         2.93
-    SM Busy                        %        72.20
+    Issue Slots Busy               %        70.13
+    Issued Ipc Active     inst/cycle         2.94
+    SM Busy                        %        72.03
     -------------------- ----------- ------------
 
-    OPT   FMA is the highest-utilized pipeline (72.2%) based on elapsed cycles in the workload, taking into account the 
+    OPT   FMA is the highest-utilized pipeline (72.0%) based on elapsed cycles in the workload, taking into account the 
           rates of its different instructions. It executes 32-bit floating point (FADD, FMUL, FMAD, ...) and integer    
           (IMUL, IMAD) operations. The pipeline is well-utilized, but might become a bottleneck if more work is added.  
-          Based on the number of executed instructions, the highest utilized pipeline (72.2%) is FMA. It executes       
+          Based on the number of executed instructions, the highest utilized pipeline (72.0%) is FMA. It executes       
           32-bit floating point (FADD, FMUL, FMAD, ...) and integer (IMUL, IMAD) operations. Comparing the two, the     
           overall pipeline utilization appears to be caused by frequent, low-latency instructions. See the Profiling    
           Guide (https://docs.nvidia.com/nsight-compute/ProfilingGuide/index.html#metrics-decoder) or hover over the    
@@ -525,45 +525,45 @@
     Local Memory Spilling Requests                                0
     Local Memory Spilling Request Overhead           %            0
     Memory Throughput                          Gbyte/s         4.52
-    Mem Busy                                         %        56.31
-    Max Bandwidth                                    %        56.02
-    L1/TEX Hit Rate                                  %         6.53
+    Mem Busy                                         %        56.18
+    Max Bandwidth                                    %        55.88
+    L1/TEX Hit Rate                                  %         6.61
     L2 Persisting Size                           Mbyte         7.86
     L2 Compression Success Rate                      %            0
     L2 Compression Ratio                                          0
     L2 Compression Input Sectors                sector            0
-    L2 Hit Rate                                      %        97.69
-    Mem Pipes Busy                                   %        56.02
+    L2 Hit Rate                                      %        97.70
+    Mem Pipes Busy                                   %        55.88
     -------------------------------------- ----------- ------------
 
     Section: Scheduler Statistics
     ---------------------------- ----------- ------------
     Metric Name                  Metric Unit Metric Value
     ---------------------------- ----------- ------------
-    One or More Eligible                   %        73.16
+    One or More Eligible                   %        73.40
     Issued Warp Per Scheduler                        0.73
-    No Eligible                            %        26.84
-    Active Warps Per Scheduler          warp        12.62
-    Eligible Warps Per Scheduler        warp         4.61
+    No Eligible                            %        26.60
+    Active Warps Per Scheduler          warp        12.64
+    Eligible Warps Per Scheduler        warp         4.63
     ---------------------------- ----------- ------------
 
     Section: Warp State Statistics
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Warp Cycles Per Issued Instruction             cycle        17.25
-    Warp Cycles Per Executed Instruction           cycle        17.25
+    Warp Cycles Per Issued Instruction             cycle        17.23
+    Warp Cycles Per Executed Instruction           cycle        17.23
     Avg. Active Threads Per Warp                                   32
     Avg. Not Predicated Off Threads Per Warp                    31.91
     ---------------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 30.73%                                                                                    
+    OPT   Est. Local Speedup: 30.81%                                                                                    
           On average, each warp of this workload spends 5.3 cycles being stalled waiting for the micro scheduler to     
           select the warp to issue. Not selected warps are eligible warps that were not picked by the scheduler to      
           issue that cycle as another warp was selected. A high number of not selected warps typically means you have   
           sufficient warps to cover warp latencies and you may consider reducing the number of active warps to          
-          possibly increase cache coherence and data locality. This stall type represents about 30.7% of the total      
-          average of 17.3 cycles between issuing two instructions.                                                      
+          possibly increase cache coherence and data locality. This stall type represents about 30.8% of the total      
+          average of 17.2 cycles between issuing two instructions.                                                      
     ----- --------------------------------------------------------------------------------------------------------------
     INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
           sampling data. The Profiling Guide                                                                            
@@ -611,12 +611,12 @@
     Block Limit Warps                     block            8
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        78.93
-    Achieved Active Warps Per SM           warp        50.52
+    Achieved Occupancy                        %        79.09
+    Achieved Active Warps Per SM           warp        50.62
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 21.07%                                                                                    
-          The difference between calculated theoretical (100.0%) and measured achieved occupancy (78.9%) can be the     
+    OPT   Est. Local Speedup: 20.91%                                                                                    
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (79.1%) can be the     
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -638,15 +638,15 @@
     Metric Name             Metric Unit Metric Value
     ----------------------- ----------- ------------
     DRAM Frequency                  Ghz         1.21
-    SM Frequency                    Ghz         1.09
-    Elapsed Cycles                cycle    1,470,854
-    Memory Throughput                 %        44.04
-    DRAM Throughput                   %         0.45
-    Duration                         ms         1.34
-    L1/TEX Cache Throughput           %        57.05
-    L2 Cache Throughput               %         5.34
-    SM Active Cycles              cycle 1,135,129.51
-    Compute (SM) Throughput           %        56.35
+    SM Frequency                    Ghz         1.10
+    Elapsed Cycles                cycle    1,476,194
+    Memory Throughput                 %        44.39
+    DRAM Throughput                   %         0.46
+    Duration                         ms         1.33
+    L1/TEX Cache Throughput           %        57.01
+    L2 Cache Throughput               %         5.47
+    SM Active Cycles              cycle 1,136,087.98
+    Compute (SM) Throughput           %        56.79
     ----------------------- ----------- ------------
 
     OPT   This workload exhibits low compute throughput and memory bandwidth utilization relative to the peak           
@@ -659,13 +659,13 @@
     Metric Name          Metric Unit Metric Value
     -------------------- ----------- ------------
     Executed Ipc Active   inst/cycle         2.85
-    Executed Ipc Elapsed  inst/cycle         2.20
-    Issue Slots Busy               %        55.09
+    Executed Ipc Elapsed  inst/cycle         2.22
+    Issue Slots Busy               %        55.52
     Issued Ipc Active     inst/cycle         2.85
-    SM Busy                        %        56.35
+    SM Busy                        %        56.79
     -------------------- ----------- ------------
 
-    INF   FMA is the highest-utilized pipeline (56.4%) based on elapsed cycles in the workload, taking into account the 
+    INF   FMA is the highest-utilized pipeline (56.8%) based on elapsed cycles in the workload, taking into account the 
           rates of its different instructions. It executes 32-bit floating point (FADD, FMUL, FMAD, ...) and integer    
           (IMUL, IMAD) operations. It is well-utilized, but should not be a bottleneck.                                 
 
@@ -675,35 +675,35 @@
     -------------------------------------- ----------- ------------
     Local Memory Spilling Requests                                0
     Local Memory Spilling Request Overhead           %            0
-    Memory Throughput                          Gbyte/s         7.03
-    Mem Busy                                         %        44.04
-    Max Bandwidth                                    %        43.78
-    L1/TEX Hit Rate                                  %         6.70
+    Memory Throughput                          Gbyte/s         7.10
+    Mem Busy                                         %        44.39
+    Max Bandwidth                                    %        44.12
+    L1/TEX Hit Rate                                  %         6.40
     L2 Persisting Size                           Mbyte         7.86
     L2 Compression Success Rate                      %            0
     L2 Compression Ratio                                          0
     L2 Compression Input Sectors                sector            0
-    L2 Hit Rate                                      %        95.64
-    Mem Pipes Busy                                   %        43.78
+    L2 Hit Rate                                      %        95.65
+    Mem Pipes Busy                                   %        44.12
     -------------------------------------- ----------- ------------
 
     Section: Scheduler Statistics
     ---------------------------- ----------- ------------
     Metric Name                  Metric Unit Metric Value
     ---------------------------- ----------- ------------
-    One or More Eligible                   %        71.31
+    One or More Eligible                   %        71.19
     Issued Warp Per Scheduler                        0.71
-    No Eligible                            %        28.69
-    Active Warps Per Scheduler          warp        11.92
-    Eligible Warps Per Scheduler        warp         4.28
+    No Eligible                            %        28.81
+    Active Warps Per Scheduler          warp        11.89
+    Eligible Warps Per Scheduler        warp         4.26
     ---------------------------- ----------- ------------
 
     Section: Warp State Statistics
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Warp Cycles Per Issued Instruction             cycle        16.72
-    Warp Cycles Per Executed Instruction           cycle        16.72
+    Warp Cycles Per Issued Instruction             cycle        16.70
+    Warp Cycles Per Executed Instruction           cycle        16.70
     Avg. Active Threads Per Warp                                   32
     Avg. Not Predicated Off Threads Per Warp                    31.90
     ---------------------------------------- ----------- ------------
@@ -749,12 +749,12 @@
     Block Limit Warps                     block            8
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        74.56
-    Achieved Active Warps Per SM           warp        47.72
+    Achieved Occupancy                        %        74.41
+    Achieved Active Warps Per SM           warp        47.62
     ------------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 25.44%                                                                                    
-          The difference between calculated theoretical (100.0%) and measured achieved occupancy (74.6%) can be the     
+    OPT   Est. Local Speedup: 25.59%                                                                                    
+          The difference between calculated theoretical (100.0%) and measured achieved occupancy (74.4%) can be the     
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   
           Guide (https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html#occupancy) for more details on     
@@ -777,13 +777,13 @@
     ----------------------- ----------- ------------
     DRAM Frequency                  Ghz         1.21
     SM Frequency                    Ghz         1.09
-    Elapsed Cycles                cycle      879,531
-    Memory Throughput                 %         1.01
-    DRAM Throughput                   %         1.01
-    Duration                         us       803.26
-    L1/TEX Cache Throughput           %         4.28
-    L2 Cache Throughput               %         0.72
-    SM Active Cycles              cycle    96,748.40
+    Elapsed Cycles                cycle      884,839
+    Memory Throughput                 %         1.00
+    DRAM Throughput                   %         1.00
+    Duration                         us       807.94
+    L1/TEX Cache Throughput           %         4.27
+    L2 Cache Throughput               %         0.73
+    SM Active Cycles              cycle    96,895.92
     Compute (SM) Throughput           %         0.69
     ----------------------- ----------- ------------
 
@@ -811,30 +811,30 @@
     -------------------------------------- ----------- ------------
     Local Memory Spilling Requests                                0
     Local Memory Spilling Request Overhead           %            0
-    Memory Throughput                          Gbyte/s        15.68
+    Memory Throughput                          Gbyte/s        15.59
     Mem Busy                                         %         0.47
-    Max Bandwidth                                    %         1.01
+    Max Bandwidth                                    %         1.00
     L1/TEX Hit Rate                                  %            0
     L2 Persisting Size                           Mbyte         7.86
     L2 Compression Success Rate                      %            0
     L2 Compression Ratio                                          0
     L2 Compression Input Sectors                sector            0
     L2 Hit Rate                                      %         2.19
-    Mem Pipes Busy                                   %         0.47
+    Mem Pipes Busy                                   %         0.46
     -------------------------------------- ----------- ------------
 
     Section: Scheduler Statistics
     ---------------------------- ----------- ------------
     Metric Name                  Metric Unit Metric Value
     ---------------------------- ----------- ------------
-    One or More Eligible                   %         6.29
+    One or More Eligible                   %         6.27
     Issued Warp Per Scheduler                        0.06
-    No Eligible                            %        93.71
+    No Eligible                            %        93.73
     Active Warps Per Scheduler          warp         2.00
     Eligible Warps Per Scheduler        warp         0.07
     ---------------------------- ----------- ------------
 
-    OPT   Est. Local Speedup: 93.71%                                                                                    
+    OPT   Est. Local Speedup: 93.73%                                                                                    
           Every scheduler is capable of issuing one instruction per cycle, but for this workload each scheduler only    
           issues an instruction every 15.9 cycles. This might leave hardware resources underutilized and may lead to    
           less optimal performance. Out of the maximum of 16 warps per scheduler, this workload allocates an average    
@@ -848,13 +848,13 @@
     ---------------------------------------- ----------- ------------
     Metric Name                              Metric Unit Metric Value
     ---------------------------------------- ----------- ------------
-    Warp Cycles Per Issued Instruction             cycle        31.80
-    Warp Cycles Per Executed Instruction           cycle        31.81
+    Warp Cycles Per Issued Instruction             cycle        31.89
+    Warp Cycles Per Executed Instruction           cycle        31.90
     Avg. Active Threads Per Warp                                   32
     Avg. Not Predicated Off Threads Per Warp                    31.82
     ---------------------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 54.38%                                                                                          
+    OPT   Est. Speedup: 54.22%                                                                                          
           On average, each warp of this workload spends 17.3 cycles being stalled waiting for sibling warps at a CTA    
           barrier. A high number of warps waiting at a barrier is commonly caused by diverging code paths before a      
           barrier. This causes some warps to wait a long time until other warps reach the synchronization point.        
@@ -862,16 +862,16 @@
           threads or greater, consider splitting it into smaller groups. This can increase eligible warps without       
           affecting occupancy, unless shared memory becomes a new occupancy limiter. Also, try to identify which        
           barrier instruction causes the most stalls, and optimize the code executed before that synchronization point  
-          first. This stall type represents about 54.4% of the total average of 31.8 cycles between issuing two         
+          first. This stall type represents about 54.2% of the total average of 31.9 cycles between issuing two         
           instructions.                                                                                                 
     ----- --------------------------------------------------------------------------------------------------------------
-    OPT   Est. Speedup: 30.82%                                                                                          
-          On average, each warp of this workload spends 9.8 cycles being stalled waiting for a scoreboard dependency on 
+    OPT   Est. Speedup: 30.95%                                                                                          
+          On average, each warp of this workload spends 9.9 cycles being stalled waiting for a scoreboard dependency on 
           a L1TEX (local, global, surface, texture) operation. Find the instruction producing the data being waited     
           upon to identify the culprit. To reduce the number of cycles waiting on L1TEX data accesses verify the        
           memory access patterns are optimal for the target architecture, attempt to increase cache hit rates by        
           increasing data locality (coalescing), or by changing the cache configuration. Consider moving frequently     
-          used data to shared memory. This stall type represents about 30.8% of the total average of 31.8 cycles        
+          used data to shared memory. This stall type represents about 30.9% of the total average of 31.9 cycles        
           between issuing two instructions.                                                                             
     ----- --------------------------------------------------------------------------------------------------------------
     INF   Check the Warp Stall Sampling (All Samples) table for the top stall locations in your source based on         
@@ -918,11 +918,11 @@
     Block Limit Warps                     block            8
     Theoretical Active Warps per SM        warp           64
     Theoretical Occupancy                     %          100
-    Achieved Occupancy                        %        12.49
-    Achieved Active Warps Per SM           warp         7.99
+    Achieved Occupancy                        %        12.50
+    Achieved Active Warps Per SM           warp         8.00
     ------------------------------- ----------- ------------
 
-    OPT   Est. Speedup: 87.51%                                                                                          
+    OPT   Est. Speedup: 87.5%                                                                                           
           The difference between calculated theoretical (100.0%) and measured achieved occupancy (12.5%) can be the     
           result of warp scheduling overheads or workload imbalances during the kernel execution. Load imbalances can   
           occur between warps within a block as well as across blocks of the same kernel. See the CUDA Best Practices   

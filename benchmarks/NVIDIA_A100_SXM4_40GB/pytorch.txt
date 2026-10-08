@@ -10,79 +10,79 @@ TF32                : disabled (true FP32, like our kernels)
 
 vector_add  (GB/s = 12 bytes per element / GPU time)
   impl                   shape                              dtype     GPU ms   wall ms     CPU ms   GFLOP/s     GB/s   mem MB   max err
-  torch add              n=1024                             fp32      0.0088    0.0091      0.003       0.1      1.4      0.0  1.52e-07
-  torch add              n=16384                            fp32      0.0089    0.0091      0.006       1.8     22.0      0.1  2.38e-07
-  torch add              n=262144                           fp32      0.0086    0.0088      0.019      30.4    364.8      1.0  2.38e-07
-  torch add              n=1048576                          fp32      0.0086    0.0089      0.104     121.3   1455.1      4.0  2.38e-07
-  torch add              n=4194304                          fp32      0.0407    0.0410      0.948     103.0   1236.2     16.0  2.38e-07
-  torch add              n=16777216                         fp32      0.1511    0.1514     10.138     111.0   1332.0     64.0  2.38e-07
-  torch add              n=67108864                         fp32      0.5827    0.5830     41.460     115.2   1382.1    256.0  2.38e-07
+  torch add              n=1024                             fp32      0.0088    0.0092      0.003       0.1      1.4      0.0  1.52e-07
+  torch add              n=16384                            fp32      0.0089    0.0091      0.008       1.8     22.0      0.1  2.38e-07
+  torch add              n=262144                           fp32      0.0087    0.0088      0.019      30.3    363.6      1.0  2.38e-07
+  torch add              n=1048576                          fp32      0.0087    0.0090      0.105     119.9   1438.9      4.0  2.38e-07
+  torch add              n=4194304                          fp32      0.0406    0.0408      0.869     103.3   1239.3     16.0  2.38e-07
+  torch add              n=16777216                         fp32      0.1511    0.1514     10.841     111.0   1332.0     64.0  2.38e-07
+  torch add              n=67108864                         fp32      0.5818    0.5821     44.249     115.3   1384.1    256.0  2.38e-07
 
 matmul  (GFLOP/s = 2*M*N*K / GPU time; GB/s = minimum bytes / GPU time)
   impl                   shape                              dtype     GPU ms   wall ms     CPU ms   GFLOP/s     GB/s   mem MB   max err
-  cuBLAS fp32            square 32x32x32                    fp32      0.0155    0.0157      0.023       4.2      0.8      0.0  1.61e-06
-  cuBLAS fp16 (fp32 acc) square 32x32x32                    fp16      0.0174    0.0176          -       3.8      0.4      0.0  7.47e-03
-  cuBLAS fp32            square 64x64x64                    fp32      0.0153    0.0155      0.015      34.3      3.2      0.0  3.28e-06
-  cuBLAS fp16 (fp32 acc) square 64x64x64                    fp16      0.0169    0.0171          -      31.0      1.5      0.0  1.27e-02
-  cuBLAS fp32            square 128x128x128                 fp32      0.0154    0.0156      0.025     271.7     12.7      0.1  6.99e-06
-  cuBLAS fp16 (fp32 acc) square 128x128x128                 fp16      0.0220    0.0222          -     190.6      4.5      0.0  2.30e-02
-  cuBLAS fp32            square 256x256x256                 fp32      0.0216    0.0219      0.122    1555.9     36.5      0.2  8.72e-06
-  cuBLAS fp16 (fp32 acc) square 256x256x256                 fp16      0.0248    0.0250          -    1352.9     15.9      0.1  3.83e-02
-  cuBLAS fp32            square 512x512x512                 fp32      0.0287    0.0289      0.756    9364.0    109.7      1.0  3.01e-05
-  cuBLAS fp16 (fp32 acc) square 512x512x512                 fp16      0.0219    0.0221          -   12252.6     71.8      0.5  4.39e-02
-  cuBLAS fp32            square 1024x1024x1024              fp32      0.1350    0.1353      2.967   15911.0     93.2      4.0  6.23e-05
-  cuBLAS fp16 (fp32 acc) square 1024x1024x1024              fp16      0.0227    0.0229          -   94679.5    277.4      2.0  7.93e-02
-  cuBLAS fp32            square 2048x2048x2048              fp32      0.9939    0.9943          -   17285.2     50.6     16.0         -
-  cuBLAS fp16 (fp32 acc) square 2048x2048x2048              fp16      0.0721    0.0724          -  238262.0    349.0      8.0         -
-  cuBLAS fp32            square 4096x4096x4096              fp32      7.2287    7.2331          -   19012.9     27.9     64.0         -
-  cuBLAS fp16 (fp32 acc) square 4096x4096x4096              fp16      0.5385    0.5388          -  255239.6    186.9     32.0         -
-  cuBLAS fp32            QKV proj, prefill 512 512x2304x768 fp32      0.1253    0.1255      4.919   14465.3    106.7      4.5  1.67e-04
-  cuBLAS fp16 (fp32 acc) QKV proj, prefill 512 512x2304x768 fp16      0.0170    0.0172          -  106755.5    393.8      3.0  6.06e-02
-  cuBLAS fp32            MLP up, prefill 512 512x3072x768   fp32      0.1591    0.1594      6.747   15184.0    108.7      6.4  2.22e-04
-  cuBLAS fp16 (fp32 acc) MLP up, prefill 512 512x3072x768   fp16      0.0168    0.0171          -  143553.1    514.0      3.0  6.13e-02
-  cuBLAS fp32            MLP down, prefill 512 512x768x3072 fp32      0.1644    0.1647      6.731   14694.2    105.2      1.9  1.95e-04
-  cuBLAS fp16 (fp32 acc) MLP down, prefill 512 512x768x3072 fp16      0.0216    0.0218          -  111894.5    400.7      0.8  1.14e-01
-  cuBLAS fp32            QKV proj, decode 1 1x2304x768      fp32      0.0344    0.0347      0.141     102.8    206.0      0.0  1.16e-05
-  cuBLAS fp16 (fp32 acc) QKV proj, decode 1 1x2304x768      fp16      0.0157    0.0160          -     225.4    225.8      0.0  4.21e-02
-  cuBLAS fp32            MLP up, decode 1 1x3072x768        fp32      0.0195    0.0198      0.107     242.2    485.2      0.0  1.57e-05
-  cuBLAS fp16 (fp32 acc) MLP up, decode 1 1x3072x768        fp16      0.0202    0.0205          -     234.0    234.3      0.0  3.77e-02
+  cuBLAS fp32            square 32x32x32                    fp32      0.0157    0.0159      0.018       4.2      0.8      0.0  1.61e-06
+  cuBLAS fp16 (fp32 acc) square 32x32x32                    fp16      0.0166    0.0168          -       4.0      0.4      0.0  7.47e-03
+  cuBLAS fp32            square 64x64x64                    fp32      0.0153    0.0155      0.014      34.4      3.2      0.0  3.28e-06
+  cuBLAS fp16 (fp32 acc) square 64x64x64                    fp16      0.0168    0.0170          -      31.2      1.5      0.0  1.27e-02
+  cuBLAS fp32            square 128x128x128                 fp32      0.0150    0.0152      0.032     279.1     13.1      0.1  6.99e-06
+  cuBLAS fp16 (fp32 acc) square 128x128x128                 fp16      0.0220    0.0223          -     190.6      4.5      0.0  2.30e-02
+  cuBLAS fp32            square 256x256x256                 fp32      0.0217    0.0220      0.125    1543.5     36.2      0.2  8.72e-06
+  cuBLAS fp16 (fp32 acc) square 256x256x256                 fp16      0.0240    0.0242          -    1398.5     16.4      0.1  3.83e-02
+  cuBLAS fp32            square 512x512x512                 fp32      0.0275    0.0277      0.459    9770.6    114.5      1.0  3.01e-05
+  cuBLAS fp16 (fp32 acc) square 512x512x512                 fp16      0.0156    0.0158          -   17257.7    101.1      0.5  4.39e-02
+  cuBLAS fp32            square 1024x1024x1024              fp32      0.1292    0.1294      2.949   16625.6     97.4      4.0  6.23e-05
+  cuBLAS fp16 (fp32 acc) square 1024x1024x1024              fp16      0.0225    0.0227          -   95520.5    279.8      2.0  7.93e-02
+  cuBLAS fp32            square 2048x2048x2048              fp32      0.9729    0.9732          -   17658.4     51.7     16.0         -
+  cuBLAS fp16 (fp32 acc) square 2048x2048x2048              fp16      0.0720    0.0722          -  238465.2    349.3      8.0         -
+  cuBLAS fp32            square 4096x4096x4096              fp32      7.2275    7.2301          -   19016.2     27.9     64.0         -
+  cuBLAS fp16 (fp32 acc) square 4096x4096x4096              fp16      0.5420    0.5423          -  253554.3    185.7     32.0         -
+  cuBLAS fp32            QKV proj, prefill 512 512x2304x768 fp32      0.1266    0.1268      2.703   14313.2    105.6      4.5  1.67e-04
+  cuBLAS fp16 (fp32 acc) QKV proj, prefill 512 512x2304x768 fp16      0.0172    0.0174          -  105106.7    387.8      3.0  6.06e-02
+  cuBLAS fp32            MLP up, prefill 512 512x3072x768   fp32      0.1602    0.1605      3.658   15077.3    108.0      6.4  2.22e-04
+  cuBLAS fp16 (fp32 acc) MLP up, prefill 512 512x3072x768   fp16      0.0165    0.0167          -  146813.7    525.7      3.0  6.13e-02
+  cuBLAS fp32            MLP down, prefill 512 512x768x3072 fp32      0.1644    0.1647      3.784   14695.1    105.2      1.9  1.95e-04
+  cuBLAS fp16 (fp32 acc) MLP down, prefill 512 512x768x3072 fp16      0.0217    0.0220          -  111130.3    397.9      0.8  1.14e-01
+  cuBLAS fp32            QKV proj, decode 1 1x2304x768      fp32      0.0281    0.0284      0.067     125.7    251.9      0.0  1.16e-05
+  cuBLAS fp16 (fp32 acc) QKV proj, decode 1 1x2304x768      fp16      0.0153    0.0155          -     231.5    231.9      0.0  4.21e-02
+  cuBLAS fp32            MLP up, decode 1 1x3072x768        fp32      0.0147    0.0149      0.087     321.6    644.2      0.0  1.57e-05
+  cuBLAS fp16 (fp32 acc) MLP up, decode 1 1x3072x768        fp16      0.0151    0.0153          -     312.2    312.7      0.0  3.77e-02
 
 TF32 experiment (same FP32 inputs; TF32 rounds them to 10 mantissa bits inside Tensor Cores)
   impl                   shape                              dtype     GPU ms   wall ms     CPU ms   GFLOP/s     GB/s   mem MB   max err
-  cuBLAS fp32            square 1024x1024x1024              fp32      0.1288    0.1291          -   16670.5        -        -  7.13e-05
-  cuBLAS tf32            square 1024x1024x1024              tf32      0.0318    0.0320          -   67508.5        -        -  4.85e-02
+  cuBLAS fp32            square 1024x1024x1024              fp32      0.1291    0.1294          -   16632.8        -        -  7.13e-05
+  cuBLAS tf32            square 1024x1024x1024              tf32      0.0318    0.0321          -   67497.7        -        -  4.85e-02
 
 softmax over rows  (GB/s = read x + write y, minimum bytes)
   impl                   shape                              dtype     GPU ms   wall ms     CPU ms   GFLOP/s     GB/s   mem MB   max err
-  torch softmax          1024x128                           fp32      0.0087    0.0089      0.044         -    120.5      0.5  1.76e-07
-  torch softmax          4096x512                           fp32      0.0094    0.0097      0.456         -   1780.9      8.0  4.00e-07
-  torch softmax          4096x1024                          fp32      0.0257    0.0261      1.177         -   1304.2     16.0  3.55e-07
-  torch softmax          12288x1024                         fp32      0.0804    0.0808     11.939         -   1251.5     48.0  5.02e-07
+  torch softmax          1024x128                           fp32      0.0104    0.0106      0.051         -    101.2      0.5  1.76e-07
+  torch softmax          4096x512                           fp32      0.0095    0.0097      0.466         -   1772.2      8.0  4.00e-07
+  torch softmax          4096x1024                          fp32      0.0266    0.0269      0.835         -   1262.7     16.0  3.55e-07
+  torch softmax          12288x1024                         fp32      0.0805    0.0808      9.377         -   1250.1     48.0  5.02e-07
 
 layernorm over hidden dim  (GB/s = minimum bytes: 8/element for LN, 16/element for add+LN)
   impl                   shape                              dtype     GPU ms   wall ms     CPU ms   GFLOP/s     GB/s   mem MB   max err
-  torch layer_norm       512x768                            fp32      0.0191    0.0194      0.073         -    164.5      1.5  1.36e-06
-  torch add + layer_norm 512x768                            fp32      0.0285    0.0287          -         -    220.7      3.0         -
-  torch layer_norm       2048x768                           fp32      0.0162    0.0164      0.272         -    776.0      6.0  1.90e-06
-  torch add + layer_norm 2048x768                           fp32      0.0280    0.0282          -         -    899.9     12.0         -
-  torch layer_norm       4096x1024                          fp32      0.0301    0.0304      0.824         -   1114.2     16.0  1.76e-06
-  torch add + layer_norm 4096x1024                          fp32      0.0681    0.0684          -         -    985.9     32.0         -
-  torch layer_norm       8192x4096                          fp32      0.2953    0.2957     21.788         -    909.0    128.1  2.32e-06
-  torch add + layer_norm 8192x4096                          fp32      0.5880    0.5884          -         -    913.1    256.1         -
+  torch layer_norm       512x768                            fp32      0.0157    0.0159      0.050         -    200.6      1.5  1.36e-06
+  torch add + layer_norm 512x768                            fp32      0.0253    0.0255          -         -    248.9      3.0         -
+  torch layer_norm       2048x768                           fp32      0.0160    0.0162      0.179         -    785.7      6.0  1.90e-06
+  torch add + layer_norm 2048x768                           fp32      0.0263    0.0265          -         -    955.9     12.0         -
+  torch layer_norm       4096x1024                          fp32      0.0300    0.0302      0.555         -   1118.9     16.0  1.76e-06
+  torch add + layer_norm 4096x1024                          fp32      0.0678    0.0681          -         -    989.4     32.0         -
+  torch layer_norm       8192x4096                          fp32      0.2936    0.2938     21.308         -    914.4    128.1  2.32e-06
+  torch add + layer_norm 8192x4096                          fp32      0.5900    0.5903          -         -    910.0    256.1         -
 
 attention softmax(QK^T/sqrt(d))V  (GFLOP/s counts the two matmuls; mem = extra GPU memory per call)
   impl                   shape                              dtype     GPU ms   wall ms     CPU ms   GFLOP/s     GB/s   mem MB   max err
-  naive (3 kernels)      h=12 seq=128 d=64                  fp32      0.0741    0.0744      0.362     678.9        -      1.9  1.68e-06
-  SDPA (fused)           h=12 seq=128 d=64                  fp32      0.1124    0.1127      0.618     447.8        -      2.1  1.68e-06
-  SDPA (fused) fp16      h=12 seq=128 d=64                  fp16      0.1639    0.1643          -     307.1        -      3.2  6.01e-04
-  naive (3 kernels)      h=12 seq=512 d=64                  fp32      0.1593    0.1596      4.401    5055.3        -     25.5  6.42e-07
-  SDPA (fused)           h=12 seq=512 d=64                  fp32      0.1985    0.1989      6.807    4056.1        -     29.5  5.23e-07
-  SDPA (fused) fp16      h=12 seq=512 d=64                  fp16      0.2290    0.2293          -    3516.4        -     34.4  4.19e-04
-  naive (3 kernels)      h=12 seq=1024 d=64                 fp32      0.4682    0.4686     30.363    6879.8        -     99.0  5.92e-07
-  SDPA (fused)           h=12 seq=1024 d=64                 fp32      0.5583    0.5587     28.808    5769.6        -    111.0  5.03e-07
-  SDPA (fused) fp16      h=12 seq=1024 d=64                 fp16      0.6444    0.6447          -    4999.1        -    121.0  2.75e-04
-  naive (3 kernels)      h=12 seq=2048 d=64                 fp32      1.7653    1.7659          -    7299.1        -    390.0         -
-  SDPA (fused)           h=12 seq=2048 d=64                 fp32      2.0470    2.0478          -    6294.4        -    438.0         -
-  SDPA (fused) fp16      h=12 seq=2048 d=64                 fp16      2.3168    2.3177          -    5561.6        -    456.0         -
+  naive (3 kernels)      h=12 seq=128 d=64                  fp32      0.0685    0.0687      0.216     734.7        -      1.9  1.68e-06
+  SDPA (fused)           h=12 seq=128 d=64                  fp32      0.1165    0.1168      0.647     432.0        -      2.1  1.68e-06
+  SDPA (fused) fp16      h=12 seq=128 d=64                  fp16      0.1698    0.1700          -     296.4        -      3.2  6.01e-04
+  naive (3 kernels)      h=12 seq=512 d=64                  fp32      0.1588    0.1591      4.036    5071.8        -     25.5  6.42e-07
+  SDPA (fused)           h=12 seq=512 d=64                  fp32      0.1980    0.1983      6.665    4066.8        -     29.5  5.23e-07
+  SDPA (fused) fp16      h=12 seq=512 d=64                  fp16      0.2270    0.2273          -    3547.4        -     34.4  4.19e-04
+  naive (3 kernels)      h=12 seq=1024 d=64                 fp32      0.4682    0.4685     37.991    6880.3        -     99.0  5.92e-07
+  SDPA (fused)           h=12 seq=1024 d=64                 fp32      0.5587    0.5591     44.023    5765.2        -    111.0  5.03e-07
+  SDPA (fused) fp16      h=12 seq=1024 d=64                 fp16      0.6440    0.6443          -    5001.7        -    121.0  2.75e-04
+  naive (3 kernels)      h=12 seq=2048 d=64                 fp32      1.7658    1.7664          -    7297.1        -    390.0         -
+  SDPA (fused)           h=12 seq=2048 d=64                 fp32      2.0472    2.0479          -    6294.0        -    438.0         -
+  SDPA (fused) fp16      h=12 seq=2048 d=64                 fp16      2.3177    2.3185          -    5559.4        -    456.0         -
 
 Wrote 59 rows to benchmarks/NVIDIA_A100_SXM4_40GB/pytorch.csv

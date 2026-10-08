@@ -10,7 +10,7 @@ GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores
 [![CUDA](https://img.shields.io/badge/CUDA-13.0-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
 [![GPU](https://img.shields.io/badge/measured%20on-Tesla%20T4%20%7C%20A100-76B900?logo=nvidia&logoColor=white)](benchmarks/)
-[![Tests](https://img.shields.io/badge/tests-6%2F6%20passing-2ea44f)](benchmarks/Tesla_T4/tests.txt)
+[![Tests](https://img.shields.io/badge/tests-7%2F7%20passing-2ea44f)](benchmarks/NVIDIA_A100_SXM4_40GB/tests.txt)
 [![Profiled](https://img.shields.io/badge/profiled-Nsight%20Compute%20%7C%20Systems-555555)](docs/10_nsight_profiling.md)
 [![Baseline](https://img.shields.io/badge/baseline-PyTorch%20%2F%20cuBLAS-EE4C2C?logo=pytorch&logoColor=white)](python/)
 
@@ -189,10 +189,16 @@ All charts are generated from the measured CSV files by
 match the data.
 
 **Also measured on an A100 (SXM4, 40 GB).** The charts above are from the T4. The same code on
-the A100 reaches 86–88% of DRAM peak on the memory-bound kernels, and GEMM v4 reaches 37% of
-FP32 peak (T4: 27%). cuBLAS gains more (46% → 82%), so the gap to cuBLAS grows. A100 tables
+the A100 reaches 80–88% of DRAM peak on the memory-bound kernels, and GEMM v4 reaches 37% of
+FP32 peak (T4: 27%). cuBLAS gains more (46% → 85%), so the gap to cuBLAS grows. A100 tables
 and the T4 comparison are in [docs/12 §9](docs/12_results.md#9-nvidia-a100-sxm4-40gb), with
 A100 charts in [assets/NVIDIA_A100_SXM4_40GB/](assets/NVIDIA_A100_SXM4_40GB/).
+
+**INT8 weight-only quantization (A100, decode, 7B-class layers):** FP16 weights are 1.9× faster
+than FP32, as predicted from the bytes. INT8 weights are **2.1–2.7×** faster, not the predicted 4×:
+INT8 reaches only 46–61% of DRAM peak, so something other than bytes now limits it (still being
+profiled). Per-row scales keep the error at 1.5% when a few outlier weights are present; a single
+per-tensor scale gives 20% ([docs/12 §9.1](docs/12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9)).
 
 ## Profiler-verified results
 
@@ -291,11 +297,12 @@ A step-by-step guide that explains every kernel line by line, written to be read
 
 ## Honest limits
 
-- Measured on **one GPU** (a Colab Tesla T4) in one run; its clock visibly throttles on long
-  kernels, so repeat runs before quoting small differences.
+- Measured on **two Colab GPUs**: the main results on a Tesla T4 (one run; its clock visibly
+  throttles on long kernels, so repeat runs before quoting small differences), and an A100-SXM4-40GB
+  ([docs/12 §9](docs/12_results.md#9-nvidia-a100-sxm4-40gb)). The charts above are T4 data.
 - PyTorch comparisons are **FP32, eager mode, these shapes**. cuBLAS remains faster than our GEMMs.
 - The fused attention kernel is FlashAttention-*style* (online softmax, no score matrix),
   not FlashAttention: it has no query/key tiling or Tensor Cores.
 - Quantization is **INT8 weight-only, for the decode GEMV only** (per-row or per-tensor scales).
   No INT4, no group-wise scales, no INT8 Tensor Cores or activation quantization, and the weights
-  are random, not a real model. Its GPU results are not measured yet ([docs/08 §9](docs/08_precision.md)).
+  are random, not a real model. Measured on the A100 only ([docs/12 §9.1](docs/12_results.md)).

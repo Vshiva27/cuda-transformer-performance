@@ -1,0 +1,74 @@
+=================== GPU ===================
+Device 0            : NVIDIA A100-SXM4-40GB
+Compute capability  : 8.0
+CUDA runtime/driver : 13.0 / 13.0
+SMs                 : 108
+Warp size           : 32
+Max threads / block : 1024
+Max threads / SM    : 2048
+Registers / block   : 65536
+Shared mem / block  : 48 KB
+Shared mem / SM     : 164 KB
+L2 cache            : 40960 KB
+Global memory       : 39.49 GiB total, 39.08 GiB free
+Peak mem bandwidth  : 1555.2 GB/s (theoretical)
+Peak FP32 compute   : 19492 GFLOP/s (approx: 64 cores/SM x 108 SMs x 1.41 GHz x 2)
+Ridge point         : 12.5 FLOP/byte
+===========================================
+
+Experiment A: one decoding step y = W x (1 token), FP32 activations and accumulation
+GB/s = minimum bytes (W once + scales + x + y) / time; * = weights fit in the 42 MB L2 cache,
+so that row may be measuring L2 rather than DRAM bandwidth.
+
+GPT-2 small QKV projection  (N=2304 outputs, K=768 inputs)
+  weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
+  fp32 weights                 |      7.08 |     0.0057 |   1244.2* |   80.0% |    1.00x
+  fp16 weights                 |      3.54 |     0.0049 |    721.7* |   46.4% |    1.16x
+  int8 weights, per-row scale  |      1.78 |     0.0055 |    326.9* |   21.0% |    1.04x
+
+GPT-2 small MLP up  (N=3072 outputs, K=768 inputs)
+  weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
+  fp32 weights                 |      9.44 |     0.0063 |   1504.6* |   96.7% |    1.00x
+  fp16 weights                 |      4.72 |     0.0052 |    902.9* |   58.1% |    1.20x
+  int8 weights, per-row scale  |      2.37 |     0.0062 |    386.6* |   24.9% |    1.02x
+
+GPT-2 small MLP down  (N=768 outputs, K=3072 inputs)
+  weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
+  fp32 weights                 |      9.44 |     0.0067 |   1400.8* |   90.1% |    1.00x
+  fp16 weights                 |      4.72 |     0.0062 |    767.3* |   49.3% |    1.09x
+  int8 weights, per-row scale  |      2.36 |     0.0062 |    384.4* |   24.7% |    1.09x
+
+7B-class QKV projection  (N=12288 outputs, K=4096 inputs)
+  weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
+  fp32 weights                 |    201.33 |     0.1445 |   1393.7  |   89.6% |    1.00x
+  fp16 weights                 |    100.66 |     0.0751 |   1340.5  |   86.2% |    1.92x
+  int8 weights, per-row scale  |     50.38 |     0.0534 |    945.6  |   60.8% |    2.71x
+
+7B-class MLP up  (N=11008 outputs, K=4096 inputs)
+  weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
+  fp32 weights                 |    180.36 |     0.1345 |   1341.3  |   86.2% |    1.00x
+  fp16 weights                 |     90.18 |     0.0700 |   1289.9  |   82.9% |    1.92x
+  int8 weights, per-row scale  |     45.13 |     0.0606 |    745.5  |   47.9% |    2.22x
+
+7B-class MLP down  (N=4096 outputs, K=11008 inputs)
+  weights                      |        MB |         ms |      GB/s |  % peak |  vs fp32
+  fp32 weights                 |    180.36 |     0.1310 |   1376.9  |   88.5% |    1.00x
+  fp16 weights                 |     90.18 |     0.0695 |   1299.0  |   83.5% |    1.89x
+  int8 weights, per-row scale  |     45.11 |     0.0631 |    715.3  |   46.0% |    2.08x
+
+
+Experiment B: error caused by storing W in fewer bits (N = K = 4096, W and x uniform in [-1, 1])
+vs the exact product of the original FP32 weights; rel. RMS = sqrt(sum err^2 / sum exact^2),
+max = max |err| / max |exact|
+
+  weights                | storage                      | rel. RMS err |      max err
+  uniform                | fp16                         |    1.826e-04 |    2.029e-04
+  uniform                | int8, per-row scale          |    3.877e-03 |    3.880e-03
+  uniform                | int8, per-tensor scale       |    3.876e-03 |    3.808e-03
+  uniform + 16 outliers  | fp16                         |    1.822e-04 |    2.029e-04
+  uniform + 16 outliers  | int8, per-row scale          |    1.548e-02 |    1.315e-01
+  uniform + 16 outliers  | int8, per-tensor scale       |    1.982e-01 |    1.983e-01
+
+One outlier sets the scale of everything that shares it: with a per-tensor scale every
+weight in the matrix gets a step of 50/127 ~= 0.39; with per-row scales only the rows
+that contain an outlier do.
