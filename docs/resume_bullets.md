@@ -1,8 +1,10 @@
 # Resume Bullets
 
 Every number below was measured on an NVIDIA Tesla T4 (CUDA 13.0) and traces to
-`benchmarks/Tesla_T4/` or `profiling/reports/Tesla_T4/`. Before using a bullet, make sure you can answer
-the "defend it" questions without notes. An interviewer will pick one number and dig.
+`benchmarks/Tesla_T4/` or `profiling/reports/Tesla_T4/`, except Option D, measured on an
+NVIDIA A100-SXM4-40GB (`benchmarks/NVIDIA_A100_SXM4_40GB/`, `profiling/reports/NVIDIA_A100_SXM4_40GB/`).
+Before using a bullet, make sure you can answer the "defend it" questions without notes. An
+interviewer will pick one number and dig.
 
 **Project line:**
 > **CUDA-Accelerated Transformer Inference Performance Benchmark** — C++17, CUDA, PyTorch, Nsight Systems/Compute
@@ -56,6 +58,27 @@ the "defend it" questions without notes. An interviewer will pick one number and
   causal;
 - what the KV cache stores and its memory cost.
 
+## Option D — INT8 quantization for LLM decoding (best for inference / LLM serving roles)
+
+> Implemented INT8 weight-only quantization (per-row scales) for the LLM decode GEMV in CUDA; on
+> an NVIDIA A100, INT8 weights ran 3.2× faster than FP32 (1.7× vs FP16) on a 7B-class layer after
+> Nsight Compute showed the first kernel was L1-bound, not DRAM-bound (L1 94%, DRAM 49%), and
+> per-row scales kept error at 1.5% vs 20% for a per-tensor scale with outlier weights.
+
+**Defend it:**
+- why decode is memory-bound (M = 1, every weight read once per token) and the prediction from
+  bytes (FP16 2×, INT8 4×);
+- symmetric quantization: scale = max|w|/127, the hand example, why the scale is applied after
+  the sum;
+- why INT8 was only 2.2× at first: the activations are read through L1 for every row, and that
+  traffic doesn't shrink with the weights (L1/TEX 21% → 51% → 94%);
+- the sector model (activation loads fill half a sector) and that it matched the counters
+  exactly;
+- why 2 rows per warp beat 4 and 8 (0.64 waves, 34% occupancy at 4 rows);
+- per-row vs per-tensor scales and the outlier experiment;
+- the scope: weight-only, INT8 only (no INT4), random weights, not a real model; 3.2× is on
+  MLP up, 2.7× on MLP down.
+
 ---
 
 ## Short version (two bullets, if space is tight)
@@ -79,6 +102,7 @@ the "defend it" questions without notes. An interviewer will pick one number and
 | "implemented FlashAttention" | it's FlashAttention-*style* (online softmax, no score matrix), without the tiling and Tensor Cores that make FlashAttention fast |
 | "optimized Tensor Core GEMM" | it uses Tensor Cores, but the profiler shows they are starved of data |
 | "LLM inference engine" / "served a model" | no model weights, tokenizer or serving; these are the kernels such engines use |
-| "INT8/INT4 quantization" | only INT8 weight-only for the decode GEMV, no INT4; measured on an A100: 2.1–2.7× over FP32 weights with the first kernel, 2.7–3.2× with the 2-rows-per-warp kernel; never the 4× that bytes alone predict |
+| "INT8/INT4 quantization" or "4× faster with INT8" | only INT8 weight-only for the decode GEMV, no INT4; measured on an A100 only: 2.7–3.2× over FP32 weights with the 2-rows-per-warp kernel (2.1–2.7× with the first one), never the 4× that bytes alone predict |
+| "quantized a model" / model accuracy | the weights are random matrices; the error numbers are per-layer output errors, not model quality |
 | any number from the † attention row | it was throttled; use the Nsight Systems numbers (4.12 / 5.08 ms at seq 1024) |
 | bandwidth numbers above 100% of peak | those rows measured the L2 cache, not DRAM |

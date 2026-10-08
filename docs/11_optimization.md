@@ -6,7 +6,8 @@ It includes the changes that did *not* help, because explaining those is part of
 
 All numbers: Tesla T4, CUDA 13.0, FP32 unless noted. Sources:
 [12_results.md](12_results.md) (benchmarks) and [10_nsight_profiling.md §9](10_nsight_profiling.md)
-(profiler counters, measured at the profiler's locked 585 MHz base clock).
+(profiler counters, measured at the profiler's locked 585 MHz base clock). §4b (INT8
+quantization) was measured on an A100: [12_results.md §9.1–9.2](12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9).
 
 ---
 
@@ -67,6 +68,33 @@ libraries choose a kernel per shape.
 
 ---
 
+## 4b. INT8 weight-only quantization: decode GEMV (A100, 7B-class MLP up, 11008 × 4096)
+
+One decoding step is y = W x with one token: no reuse of W, so time should follow the bytes of W.
+Weights of 45–180 MB are larger than the A100's 40 MB L2, so these rows measure DRAM.
+
+| Step | Bottleneck | Evidence | Change | Result |
+|---|---|---|---|---|
+| FP32 weights | DRAM (as intended) | DRAM 89%, L1/TEX 21% | – | 0.1355 ms, 86% of peak |
+| FP16 weights | DRAM | DRAM 86%, L1/TEX 51% | 2 bytes per weight | **1.93×** (prediction: 2×) |
+| INT8 weights, one row per warp | **L1, not DRAM** | DRAM read exactly 45.2 MB (1 B/weight) but DRAM only 49% busy; **L1/TEX 94%**; 12.7 M L1 sectors for 45 MB of weights | 1 byte per weight + one FP32 scale per row | **2.20×**, not the predicted 4× |
+| INT8, 4 rows per warp | **parallelism** | L1 sectors 12.69 M → 4.24 M (model 4.23 M); L1/TEX 94% → 42%; DRAM 49% → 66%; but 344 blocks = 0.64 waves, 34% occupancy (48 registers) | read each chunk of x once for 4 rows | 2.99× (1.36× the one-row INT8 kernel) |
+| INT8, **2 rows per warp** | (best balance) | twice the warps of R = 4, half the x traffic of R = 1 | read each chunk of x once for 2 rows | **3.23×** (MLP down: 2.73×) |
+
+**Why the activations dominate:** every weight is multiplied by one FP32 x value that each warp
+reads through L1. That costs the same whatever the weight type, so it becomes the largest stream
+once the weights shrink, and for FP16/INT8 each 16-byte x load is 32 or 64 bytes from its
+neighbour's, so it fills only half a 32-byte sector. That model reproduces the measured L1
+sector counts of every kernel exactly (11.27 / 14.09 / 12.68 / 4.23 M).
+
+**Accuracy:** INT8 adds 0.4% relative RMS error on uniform weights (FP16: 0.02%). With 16 outlier
+weights, a per-tensor scale gives 20%, per-row scales 1.5%.
+
+**Small layers don't benefit:** GPT-2-sized layers (2–9 MB) take 5–7 µs in every format, and
+INT8 is at most 1.10× faster: there, launch and latency set the time, not bytes.
+
+---
+
 ## 5. Why inference performance depends on each factor: evidence from this project
 
 | Factor | What we measured | Inference consequence |
@@ -75,7 +103,7 @@ libraries choose a kernel per shape.
 | **Compute** | GEMM 61 → 2,236 GFLOP/s through reuse; Tensor Cores 1.49× (ours) and cuBLAS FP16 at 35.9 TFLOP/s vs 3.7 FP32 | Prefill is dominated by GEMMs; Tensor Cores + FP16/BF16 are the main lever |
 | **Kernel launch overhead** | vector add: a 2.7 µs floor regardless of size; `cudaLaunchKernel` median 15.9 µs in the profiled program; PyTorch small ops: GPU time ≈ wall time (launch-bound) | Decode runs hundreds of tiny kernels per token. Fusion and CUDA Graphs cut launches |
 | **Parallelism** | decode attention: 0.07 waves, 3% SM throughput; softmax of one 50,257-wide row: 7.2 GB/s; GEMM v4 at n = 128: 2.8× slower than v2 | Batch size 1 decoding leaves the GPU mostly idle. Batching requests and split-K/flash-decoding create parallelism |
-| **Precision** | FP16 halves bytes; FP16 accumulation error 3.6e-2 vs 4.4e-6 (FP32) at K = 16,384, and overflow to inf | FP16/BF16 storage + FP32 accumulation is the standard; quantization (INT8/INT4) pushes the bytes down further for memory-bound decode |
+| **Precision** | FP16 halves bytes; FP16 accumulation error 3.6e-2 vs 4.4e-6 (FP32) at K = 16,384, and overflow to inf | FP16/BF16 storage + FP32 accumulation is the standard; quantization (INT8/INT4) pushes the bytes down further for memory-bound decode. Measured (A100): INT8 weights 3.2× faster than FP32 in the decode GEMV, but only after removing the L1 bottleneck the smaller weights exposed (§4b) |
 | **Cache** | rows that fit in the 4 MB L2 ran above "100% of DRAM peak"; softmax v3 re-read rows from DRAM once its working set exceeded L2; v2 GEMM 32×1 used 35% less DRAM | Working-set size relative to L2 decides whether re-reads are free. Tiling and kernel design should keep reuse inside the cache |
 | **Occupancy** | v2 GEMM at 49.7% occupancy matched 98.7%; v4 at 66% was the fastest FP32 kernel; but vector add with 32-thread blocks (50% occupancy) lost 15% | Occupancy hides latency when a kernel is latency-bound; it is not a goal in itself |
 | **Bandwidth** | vector add 82%, LayerNorm 72%, softmax 76% of peak; decode GEMM 205–224 GB/s | Decode tokens/second is roughly bandwidth ÷ bytes per token (weights + KV cache): this is why quantization and KV-cache compression matter |
@@ -116,6 +144,8 @@ attention by parallelism.
 | Grid-stride is "the" pattern | slower for a large vector add (160 blocks) | too few loads in flight to saturate DRAM |
 | FP16 on CUDA cores ≈ 2× | ≈ FP32 tiled | the math still runs as FP32 FMAs; the speedup needs Tensor Cores |
 | PyTorch SDPA saves memory | not for FP32 on the T4 (438 MB) | measure library behavior; backends depend on dtype and GPU |
+| INT8 weights (¼ the bytes) are 4× faster in decode | 2.2× (A100), then 3.2× after a second kernel | fewer bytes help only while DRAM is the bottleneck; the activation reads through L1 became the limit |
+| More rows per warp = more activation reuse = faster | 2 rows beat 4 and 8 | reuse costs warps and registers; at 4 rows only 0.64 waves remained (34% occupancy) |
 
 **Still unexplained:** ~10% extra shared-memory store wavefronts in the fused attention kernel
 (10 §9.4). The next step is the per-instruction Source view.
@@ -132,3 +162,6 @@ attention by parallelism.
 4. **GEMM v4:** whole-wave tiling and register capping (2.13 waves, 75% occupancy).
 5. **Softmax for long rows:** read once into registers, as in LayerNorm v3.
 6. **CUDA Graphs** for the multi-kernel pipelines (launch-bound at small sizes).
+7. **INT8 GEMV:** coalesced activation loads (halve the half-used sectors) and splitting each
+   row's K range across warps, so more rows per warp keep enough warps busy (3.2× of a possible
+   ~4× today).

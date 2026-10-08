@@ -2,8 +2,10 @@
 
 How to use this page: read the question, answer **out loud** without looking, then compare.
 Every answer is grounded in this project, and the numbers are your own measurements on a
-Tesla T4 ([12_results.md](12_results.md), [10_nsight_profiling.md §9](10_nsight_profiling.md)).
-If you can't explain a number, don't say it in the interview.
+Tesla T4 ([12_results.md](12_results.md), [10_nsight_profiling.md §9](10_nsight_profiling.md)),
+except where an answer says **A100**: the A100 results and all INT8 quantization numbers are in
+[12_results.md §9](12_results.md#9-nvidia-a100-sxm4-40gb). If you can't explain a number, don't
+say it in the interview.
 
 ---
 
@@ -23,15 +25,20 @@ If you can't explain a number, don't say it in the interview.
 > LayerNorm cut DRAM traffic from 22 to 18 bytes per element, matching its measured 1.21×
 > speedup. I also did FP16 with FP32 accumulation on Tensor Cores via WMMA, a FlashAttention-style
 > fused attention, and measured that a KV-cache decode step is 30× cheaper than recomputing
-> attention at a 2K context."
+> attention at a 2K context. Then, on an A100, I added INT8 weight-only quantization for the
+> decode matrix-vector product. INT8 weights first ran only 2.2× faster than FP32, not the 4×
+> the bytes predict; Nsight Compute showed the activation reads had made L1 the bottleneck, and
+> reading each activation once for two rows brought it to 3.2×."
 
 **"What was the hardest part?"** → Pick one you can go deep on. Good candidates:
 (a) GEMM indexing and tiling: the k-tile loop and two barriers; (b) online softmax and its
 NaN edge cases with masked −∞ scores; (c) the profiler showing that my 32×1-block hypothesis was
-wrong (it was DRAM traffic, not L1).
+wrong (it was DRAM traffic, not L1); (d) the INT8 GEMV, where each fix exposed the next
+bottleneck: DRAM → L1 → too few warps.
 
 **"What would you do next?"** → [11_optimization.md §8](11_optimization.md): WMMA with
-shared-memory staging (9% of cuBLAS FP16 today), FlashAttention-style tiles, flash-decoding.
+shared-memory staging (9% of cuBLAS FP16 today), FlashAttention-style tiles, flash-decoding,
+and for the INT8 GEMV coalesced activation loads and splitting rows across warps.
 
 ---
 
@@ -213,7 +220,57 @@ Storing values as small integers plus a scale: q = round(w/scale), w ≈ q·scal
 per weight, INT4 is half a byte. Per-channel or per-group scales handle outliers. Weight-only
 quantization dequantizes inside the GEMM and mainly speeds up memory-bound decode. I implemented it
 in an INT8 weight-only decode GEMV: same kernel for FP32, FP16 and INT8 weights, one scale per
-output row applied once after the sum, and an outlier experiment comparing per-row with per-tensor scales.
+output row applied once after the sum, and an outlier experiment comparing per-row with per-tensor
+scales. **A100**, 7B-class layer (11008 × 4096): FP16 weights 1.9× faster than FP32, INT8 2.2×
+with the first kernel and **3.2×** after fixing its L1 bottleneck.
+
+**What is the difference between weight-only quantization (W8A16) and W8A8?**
+Weight-only stores the weights in INT8 but converts them back to floating point inside the kernel,
+so the math and the activations stay FP16/FP32. It saves memory and bandwidth, which is what
+decode needs. W8A8 also quantizes the activations and runs the math on INT8 (or FP8) Tensor
+Cores, which speeds up compute-bound prefill but needs activation calibration. Mine is weight-only
+with FP32 activations (W8A32), on CUDA cores.
+
+**How did you quantize the weights?**
+Symmetric INT8 on the CPU, once, before inference: for each output row, scale = max|w| / 127,
+q = round(w / scale) clamped to ±127. Checked by hand: w = [0.12, −0.5, 0.31, 0.02] →
+q = [30, −127, 79, 5], scale = 0.5/127. An all-zero row gets scale 0. Real engines also quantize
+offline; the kernel only reads q and the scales.
+
+**Why apply the scale after the sum instead of dequantizing each weight?**
+Within a row the scale is constant, so Σ x·(q·s) = s·Σ x·q exactly. The kernel accumulates x·q in
+FP32 and multiplies by s once per output: K − 1 fewer multiplies per row, with the same result.
+INT8 → float conversion is exact, so the only rounding is the FP32 accumulation.
+
+**Why did INT8 weights give only 2.2×, not 4×, over FP32?**
+Measured on the A100. DRAM bytes did drop exactly 4× (180.4 → 45.2 MB), so the weights were read
+once. But every weight is multiplied by an FP32 activation that each warp reads through L1, and
+that traffic doesn't shrink with the weights. Nsight Compute: L1/TEX throughput 21% (FP32) →
+51% (FP16) → **94% (INT8)**, while DRAM fell to 49%. The bottleneck moved from DRAM to L1. A
+simple model of the sectors (activation loads use half of each 32-byte sector for FP16/INT8)
+matched the measured counts for all three kernels exactly.
+
+**How did you fix it, and why did 2 rows per warp beat 4 or 8?**
+Each warp computes R outputs and reads each chunk of activations once for all R rows, so the
+activation traffic drops by R. At R = 4, L1 sectors fell from 12.69 M to 4.24 M (my model said
+4.23 M), L1 load from 94% to 42%, and DRAM use rose to 66%. But 4× fewer warps at 48 registers
+each left only 0.64 of a wave and 34% occupancy: too few loads in flight. R = 2 kept enough
+warps and was fastest on every shape: 3.23× over FP32 (MLP up) and 2.73× (MLP down). At R = 8 the
+4096-row layer launched 64 blocks for 108 SMs and was slower than the original kernel.
+
+**Per-row or per-tensor scales: does it matter?**
+Only when there are outliers. With uniform weights both gave 0.4% relative RMS error, because
+every row had the same max. With 16 outlier weights (|w| = 50 among weights ≤ 1), one per-tensor
+scale gave every weight a step of 0.39 and **20%** error; per-row scales confined the damage to
+the 16 affected rows: 1.5% RMS error. That's why real methods use per-channel or per-group scales
+(and why GPTQ/AWQ/SmoothQuant exist).
+
+**How did you verify the INT8 kernel?**
+Two references. Against the exact double product of q·scale, which isolates the kernel's own
+arithmetic (tolerance 2e-5 of the output scale). And a provable bound against the original
+FP32 weights: each weight is off by at most scale/2, so |y_int8 − y_exact| ≤ scale/2 · Σ|x| must
+hold for every output. Both run on 11 shapes, including rows not a multiple of 16 bytes and row
+counts not a multiple of the rows per warp.
 
 ---
 
@@ -250,14 +307,15 @@ per thread, and more contention: v2 GEMM with half the warps (32×1) used 35% le
 had half the stall cycles per instruction.
 
 **How did Nsight Compute help?**
-It confirmed or refuted 13 written hypotheses. It confirmed the coalescing math exactly (16.5 →
+It confirmed or refuted 16 written hypotheses (13 on the T4, 3 on the A100). It confirmed the coalescing math exactly (16.5 →
 2.5 sectors/request), 0 bank conflicts in the tiled kernels, and no spills. It explained the
 fusion speedup by DRAM bytes (22.07 → 18.11 per element ≈ 1.21×). It overturned my guesses: 32×1
 blocks won through less DRAM traffic, not a better L1 hit rate (which was worse); softmax
 warp-per-row lost because it re-read 2.77× its input from DRAM; fused attention was
 instruction-bound, not starved. It also showed the WMMA kernel issuing an instruction in only
 5.5% of cycles, with 110 of every 124 cycles per instruction spent waiting for global loads:
-the Tensor Cores were starved of data.
+the Tensor Cores were starved of data. On the A100 it explained the INT8 GEMV: weight bytes were
+exactly 1 per weight, but L1 was at 94%, so the activation reads, not DRAM, were the limit.
 
 **Why is your v4 only 60% of cuBLAS?**
 Measured: a tail effect (2.13 waves; the profiler estimates up to 33%), occupancy capped at 75%
@@ -274,8 +332,9 @@ causal masking mine is 1.2× faster, because it skips future keys.
 CPU references in double precision. Tolerances derived from the arithmetic (they grow with K or
 the row length), validated by CPU emulation of each kernel's summation order. Poison values in
 outputs, non-square and edge shapes (65×63×9, 255×257×129, M = 1, K = 0), hand-computed examples
-(4×4 GEMM, LayerNorm, attention), stability cases (softmax of values near 1000). 6 test programs
-all pass on the T4.
+(4×4 GEMM, LayerNorm, attention), stability cases (softmax of values near 1000), and for INT8 an
+error bound that must hold for every output. 7 test programs, all passing on the A100 (the T4
+run had 6; quantization was added later).
 
 ---
 
@@ -333,3 +392,10 @@ once. The CUDA runtime is linked automatically by CMake for CUDA targets.
   were busy.
 - Why can bandwidth exceed 100% of peak in a benchmark? The working set fit in L2.
 - What is the tail effect? A partial last wave of blocks leaves SMs idle (v4: 2.13 waves).
+- Why quantize weights for decode? Decode reads every weight once per token: fewer bytes per
+  weight means fewer bytes per token.
+- INT8 range in symmetric quantization? −127 to 127 (−128 unused, so the range is symmetric).
+- Why didn't GPT-2-sized layers speed up with INT8? 2–9 MB of weights take 5–7 µs: launch and
+  latency, not bytes, set the time.
+- Why can a smaller data type stop helping? The bottleneck moves: INT8 weights moved it from DRAM
+  to L1 (the activation reads).

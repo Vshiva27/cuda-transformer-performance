@@ -5,7 +5,7 @@
 **The GPU kernels behind Transformer inference, written from scratch in CUDA,
 optimized step by step, and explained with profiler evidence.**
 
-GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores
+GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores · INT8 quantization
 
 [![CUDA](https://img.shields.io/badge/CUDA-13.0-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
@@ -22,8 +22,8 @@ GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores
 
 ## Highlights
 
-All numbers measured on an NVIDIA Tesla T4 (CUDA 13.0), FP32 unless noted. Every kernel is
-verified against a double-precision CPU reference before it is timed.
+First row: NVIDIA Tesla T4; second row: NVIDIA A100-SXM4-40GB. CUDA 13.0, FP32 unless noted.
+Every kernel is verified against a double-precision CPU reference before it is timed.
 
 <table>
 <tr>
@@ -31,6 +31,12 @@ verified against a double-precision CPU reference before it is timed.
 <td align="center" width="25%"><h3>1.21×</h3>fused residual-add + LayerNorm<br><sub>22.1 → 18.1 DRAM bytes/element (Nsight)</sub></td>
 <td align="center" width="25%"><h3>30×</h3>cheaper decode step with KV cache<br><sub>vs recomputing attention, 2K context</sub></td>
 <td align="center" width="25%"><h3>1.38×</h3>faster than PyTorch LayerNorm<br><sub>at LLaMA-7B hidden size (8192 × 4096)</sub></td>
+</tr>
+<tr>
+<td align="center" width="25%"><h3>3.2×</h3>INT8 vs FP32 weights, decode GEMV<br><sub>A100 · 7B-class layer · 1.7× vs FP16</sub></td>
+<td align="center" width="25%"><h3>94% → 42%</h3>L1 load when activations are read once per 4 rows<br><sub>A100 · INT8 GEMV · Nsight-measured</sub></td>
+<td align="center" width="25%"><h3>1.5% vs 20%</h3>INT8 error, per-row vs per-tensor scale<br><sub>A100 · with 16 outlier weights</sub></td>
+<td align="center" width="25%"><h3>88%</h3>of DRAM peak, vector add<br><sub>A100 · 1,368 of 1,555 GB/s</sub></td>
 </tr>
 </table>
 
@@ -65,7 +71,7 @@ verified against a double-precision CPU reference before it is timed.
 | **Attention** | unfused (batched GEMM + softmax) → **fused online-softmax kernel**, causal mask, **KV-cache decode** | seq² memory, FlashAttention-style fusion, decode vs prefill |
 | **Vector add** | one thread/element → grid-stride loop | indexing, bandwidth ceiling (82% of peak) |
 | **Precision** | FP32 vs FP16 vs FP16-in / FP32-accumulate | measured: FP16 accumulation ~8,000× more error at K = 16K, and overflow |
-| **Quantization** | decode GEMV with FP32 → FP16 → **INT8 weights** (per-row or per-tensor scale) | weight-only quantization: 4× fewer bytes for memory-bound decode, outliers vs scale granularity |
+| **Quantization** | decode GEMV with FP32 → FP16 → **INT8 weights** (per-row or per-tensor scale) → INT8 with **2 rows per warp** (activations read once per 2 rows) | weight-only quantization for memory-bound decode; the bottleneck moving DRAM → L1 → parallelism; outliers vs scale granularity |
 
 ## How it works
 
@@ -215,7 +221,7 @@ weights are present; a single per-tensor scale gives 20%
 | v4 at 60% of cuBLAS | tail effect (2.13 waves), 72 registers → 75% occupancy, 0.86 eligible warps/scheduler |
 | WMMA kernel is starved, not slow | issue slots 5.5% busy; 110 of 124 cycles/instruction waiting on global loads |
 
-Full tables and all 13 hypotheses: [docs/10 §9](docs/10_nsight_profiling.md) ·
+Full tables and all 16 hypotheses (13 on the T4, 3 on the A100): [docs/10 §9](docs/10_nsight_profiling.md) ·
 raw reports: [Tesla_T4](profiling/reports/Tesla_T4/), [A100](profiling/reports/NVIDIA_A100_SXM4_40GB/)
 
 <details>

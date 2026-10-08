@@ -177,6 +177,11 @@ ncu --import profiling/reports/<GPU>/ncu_gemm.ncu-rep --page details > profiling
 `profile_targets` prints a numbered list ("kernel 3: gemm v2 coalesced (block 32x1)").
 Nsight Compute numbers profiled kernels in the same order, so result ID 3 is that launch.
 
+Cases: `vector_add`, `gemm`, `precision`, `softmax`, `layernorm`, `attention`, and
+`quantization` (the decode GEMV at 11008 × 4096 with FP32, FP16 and INT8 weights, plus the INT8
+multi-row kernel with 4 rows per warp; measured in §9.7). Run each with
+`bash profiling/ncu_kernels.sh <case>`.
+
 A **section** is a group of related metrics plus ncu's own analysis rules, which print hints
 such as "uncoalesced global accesses" or "occupancy limited by registers". Read the hints, but
 verify them with the numbers.
@@ -465,6 +470,25 @@ bottleneck is instruction issue (H12).
 | softmax (long rows) | DRAM re-reads with warp-per-row | keep the row in registers (like LayerNorm v3) so x is read once |
 | fused attention | instruction issue | process tiles of queries × keys as small GEMMs (FlashAttention style, Tensor Cores) |
 | attention decode | 0.07 waves | split keys across blocks and merge (m, l, o) partials (flash-decoding) |
+| INT8 GEMV, 2 rows/warp (A100, §9.7) | half-used sectors for the activation loads; too few warps at 4+ rows per warp | coalesced activation loads; split each row's K range across warps |
+
+### 9.7 A100: the INT8 decode GEMV (`quantization` case)
+
+Source: [`profiling/reports/NVIDIA_A100_SXM4_40GB/ncu_quantization_details.txt`](../profiling/reports/NVIDIA_A100_SXM4_40GB/ncu_quantization_details.txt)
+and `ncu_quantization_metrics.csv` (A100-SXM4-40GB, at the profiler's locked clock, ~1.0–1.1 GHz). Benchmark context
+and every table: [12_results §9.1–9.2](12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9).
+Shape: 7B-class MLP up, N = 11008 outputs, K = 4096 inputs; weights of 45–180 MB, larger than
+the 40 MB L2.
+
+| # | Hypothesis | Measured | Verdict |
+|---|---|---|---|
+| H14 | Decode GEMV is DRAM-bound for every weight type, so INT8 (¼ the bytes of FP32) is ~4× faster | DRAM read **180.4 / 90.2 / 45.2 MB** (exactly 4 / 2 / 1 B per weight). FP32 and FP16: DRAM 89% / 86%. INT8: **DRAM 49%, L1/TEX 94%**, SM 38%, issue slots 19% busy, `LOCAL:0`. Benchmark: INT8 2.20× FP32, not 4× | ✘ for INT8. The byte reduction happened, but **L1 became the limit**: each warp reads the FP32 activations through L1 for every row, and that traffic doesn't shrink with the weights (L1/TEX 21% → 51% → 94% for FP32 → FP16 → INT8) |
+| H15 | The L1 traffic is weights + activations, with the activation loads using half of each 32-byte sector for FP16/INT8 (neighbouring lanes' 16-byte x loads are 32 or 64 bytes apart) | Predicted global-load sectors: FP32 11.27 M, FP16 14.09 M, INT8 12.68 M, INT8 4 rows/warp 4.23 M. Measured: **11,272,192 / 14,090,240 / 12,692,224 / 4,238,080** | ✔ to within 0.2% for all four kernels |
+| H16 | Reading the activations once for R = 4 rows removes the L1 limit and moves INT8 back towards DRAM-bound | L1/TEX 94% → **42%**, DRAM 49% → **66%**, duration 63.0 → 46.3 µs. But 48 registers/thread → 5 blocks/SM, 344 blocks = **0.64 waves**, achieved occupancy **34%** | ✔ for the L1 part; a **new limit (parallelism)** appears. Benchmark: R = 2 beats R = 4 and R = 8 on every shape (12_results §9.2) |
+
+The three kernels show the general lesson in one table: halving the bytes once (FP16) gave the
+full 2×; halving them again moved the bottleneck from DRAM to L1, and fixing that moved it to
+parallelism.
 
 ---
 
@@ -506,6 +530,9 @@ bottleneck is instruction issue (H12).
   Barrier → synchronization.
 - `ncu` uses base clocks and cold caches: compare percentages.
 - Occupancy is a means, not a goal.
+- Check every unit, not just DRAM: the INT8 GEMV had DRAM at 49% but L1/TEX at 94% (§9.7).
+- Count bytes and sectors with a model before profiling; when the counters match it, the
+  explanation is proven (H10, H15).
 
 ---
 
