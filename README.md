@@ -269,6 +269,18 @@ results go to `benchmarks/<GPU>/` and `profiling/reports/<GPU>/`, so runs never 
 other. Before interpreting results, read the caveats (MIG slices, larger L2 caches, features our
 kernels don't use): [docs/09 §21](docs/09_benchmarking.md).
 
+**Generate text with a real LLM on these kernels** (GPT-2 from Hugging Face; every linear layer,
+LayerNorm and the attention run on this project's kernels, with FP32, FP16 or INT8 weights). It
+checks the logits and the generated text against Hugging Face, then measures tokens per second:
+
+```bash
+pip install transformers
+python3 llm/run_gpt2.py --verify --bench --model gpt2 --csv benchmarks/<GPU>/gpt2.csv   # or gpt2-xl
+```
+
+How it works and how to read the results: [docs/14](docs/14_llm_integration.md). Results are not
+measured yet.
+
 **Requirements:** an NVIDIA GPU (detected at runtime; Tensor Core tests need compute
 capability ≥ 7.0), CUDA Toolkit 11+, CMake ≥ 3.18, a C++17 compiler; PyTorch for the baseline
 (`pip install -r requirements.txt`; preinstalled on Colab). If CMake rejects `native`
@@ -285,6 +297,7 @@ tests/          correctness tests (ctest)
 python/         PyTorch baseline and results summarizer
 scripts/        run_all.sh: build → test → benchmark → summary
 profiling/      Nsight scripts and reports
+llm/            GPT-2 text generation on these kernels (PyTorch extension)
 notebooks/      Colab notebooks
 benchmarks/     measured results, one folder per GPU
 assets/         README charts, generated from the results by make_charts.js
@@ -303,7 +316,7 @@ A step-by-step guide that explains every kernel line by line, written to be read
 | [04](docs/04_matrix_multiplication.md) | GEMM v1–v4, with 4×4 traces | [11](docs/11_optimization.md) | The optimization story |
 | [05](docs/05_softmax.md) | Softmax and warp shuffles | [12](docs/12_results.md) | All measured results |
 | [06](docs/06_layernorm.md) | LayerNorm and kernel fusion | [13](docs/13_interview_questions.md) | Interview questions and answers |
-| [07](docs/07_attention.md) | Attention and the KV cache | | |
+| [07](docs/07_attention.md) | Attention and the KV cache | [14](docs/14_llm_integration.md) | Running GPT-2 on these kernels |
 
 ## Honest limits
 

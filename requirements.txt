@@ -1,3 +1,5 @@
 # PyTorch baseline (Phase 4). On Colab, torch is already installed.
 torch>=2.0
 numpy>=1.24
+# GPT-2 text generation on the kernels (llm/run_gpt2.py, docs/14). On Colab, already installed.
+transformers>=4.40

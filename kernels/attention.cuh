@@ -23,6 +23,11 @@ struct AttentionShape {
     int kv_len;
     int d;        // head dimension
     bool causal;  // apply the causal mask (requires kv_len >= q_len)
+    // Keys ALLOCATED per head in K and V (fused kernel only). 0 means "packed": kv_capacity =
+    // kv_len. A KV cache preallocated for max_len tokens is stored [heads][max_len][d] and only
+    // its first kv_len rows per head are filled; pass kv_capacity = max_len so each head's keys
+    // are found at head * max_len * d. The unfused path requires packed K and V.
+    int kv_capacity = 0;
 };
 
 // Batched GEMM used by the unfused attention: for each b in [0, batch):

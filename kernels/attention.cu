@@ -91,7 +91,7 @@ constexpr int KEY_TILE = 32;    // keys per shared-memory tile
 
 template <int D>
 __global__ void attention_fused_kernel(const float* Q, const float* K, const float* V, float* O, int q_len,
-                                       int kv_len, float scale, bool causal, int causal_offset) {
+                                       int kv_len, int kv_capacity, float scale, bool causal, int causal_offset) {
     constexpr int PER_LANE = D / 32;  // elements of a d-vector held by each lane
     __shared__ float Ks[KEY_TILE][D];
     __shared__ float Vs[KEY_TILE][D];
@@ -105,8 +105,9 @@ __global__ void attention_fused_kernel(const float* Q, const float* K, const flo
     const bool active = q_row < q_len;
 
     Q += static_cast<size_t>(head) * q_len * D;
-    K += static_cast<size_t>(head) * kv_len * D;
-    V += static_cast<size_t>(head) * kv_len * D;
+    // kv_capacity = keys allocated per head (= kv_len when K and V are packed).
+    K += static_cast<size_t>(head) * kv_capacity * D;
+    V += static_cast<size_t>(head) * kv_capacity * D;
     O += static_cast<size_t>(head) * q_len * D;
 
     // This lane's slice of the query (pre-multiplied by the scale) and of the output.
@@ -191,11 +192,19 @@ static void check_shape(const AttentionShape& s) {
         std::fprintf(stderr, "attention: causal masking needs kv_len >= q_len (got %d < %d)\n", s.kv_len, s.q_len);
         std::exit(EXIT_FAILURE);
     }
+    if (s.kv_capacity != 0 && s.kv_capacity < s.kv_len) {
+        std::fprintf(stderr, "attention: kv_capacity %d is smaller than kv_len %d\n", s.kv_capacity, s.kv_len);
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 void attention_unfused(const float* d_Q, const float* d_K, const float* d_V, float* d_O, float* d_scores,
                        const AttentionShape& s) {
     check_shape(s);
+    if (s.kv_capacity != 0 && s.kv_capacity != s.kv_len) {
+        std::fprintf(stderr, "attention_unfused: K and V must be packed (kv_capacity 0 or kv_len)\n");
+        std::exit(EXIT_FAILURE);
+    }
     if (s.heads <= 0 || s.q_len <= 0 || s.kv_len <= 0) return;
     const float scale = 1.0f / std::sqrt(static_cast<float>(s.d));
     const int offset = s.kv_len - s.q_len;
@@ -211,8 +220,9 @@ template <int D>
 static void launch_fused(const float* d_Q, const float* d_K, const float* d_V, float* d_O, const AttentionShape& s) {
     const float scale = 1.0f / std::sqrt(static_cast<float>(D));
     dim3 grid((s.q_len + FUSED_WARPS - 1) / FUSED_WARPS, s.heads);  // x: groups of 8 queries, y: head
-    attention_fused_kernel<D><<<grid, FUSED_WARPS * 32>>>(d_Q, d_K, d_V, d_O, s.q_len, s.kv_len, scale, s.causal,
-                                                          s.kv_len - s.q_len);
+    const int capacity = s.kv_capacity > 0 ? s.kv_capacity : s.kv_len;
+    attention_fused_kernel<D><<<grid, FUSED_WARPS * 32>>>(d_Q, d_K, d_V, d_O, s.q_len, s.kv_len, capacity, scale,
+                                                          s.causal, s.kv_len - s.q_len);
     CUDA_CHECK_KERNEL();
 }
 

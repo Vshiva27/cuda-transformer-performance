@@ -101,7 +101,7 @@ interviewer will pick one number and dig.
 | "faster than PyTorch" (in general) | only for specific ops and shapes, in FP32 eager mode, on a T4. PyTorch's attention and GEMMs were faster than ours |
 | "implemented FlashAttention" | it's FlashAttention-*style* (online softmax, no score matrix), without the tiling and Tensor Cores that make FlashAttention fast |
 | "optimized Tensor Core GEMM" | it uses Tensor Cores, but the profiler shows they are starved of data |
-| "LLM inference engine" / "served a model" | no model weights, tokenizer or serving; these are the kernels such engines use |
+| "LLM inference engine" / "served a model" | GPT-2 runs on the kernels (real weights and tokenizer, batch 1, greedy) to verify them against Hugging Face, but there is no serving, batching, scheduling or prefill kernel: that is not an engine |
 | "INT8/INT4 quantization" or "4× faster with INT8" | only INT8 weight-only for the decode GEMV, no INT4; measured on an A100 only: 2.7–3.2× over FP32 weights with the 2-rows-per-warp kernel (2.1–2.7× with the first one), never the 4× that bytes alone predict |
 | "quantized a model" / model accuracy | the weights are random matrices; the error numbers are per-layer output errors, not model quality |
 | any number from the † attention row | it was throttled; use the Nsight Systems numbers (4.12 / 5.08 ms at seq 1024) |

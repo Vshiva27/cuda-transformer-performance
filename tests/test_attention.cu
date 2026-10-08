@@ -10,10 +10,13 @@
 //    a decode step (q_len = 1 against 513 cached keys), q_len not a multiple
 //    of 8 (partially filled blocks), kv_len not a multiple of 32 (partial key
 //    tiles), all supported head dims.
+// 3. A KV cache with spare capacity (kv_capacity > kv_len, unused rows NaN):
+//    must match the packed layout bit for bit.
 // A CPU emulation of both kernels' exact logic passed these cases with a worst
 // error of 1.2e-7 (docs/07 section 9); the tolerance 1e-4 leaves a wide margin.
 // =============================================================================
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -94,6 +97,33 @@ int main() {
         cpu::attention(Q.data(), K.data(), V.data(), ref.data(), s.heads, s.q_len, s.kv_len, s.d, s.causal);
         check("unfused " + describe(s), ref, run_gpu(false, Q, K, V, s), 1e-4);
         check("fused   " + describe(s), ref, run_gpu(true, Q, K, V, s), 1e-4);
+    }
+
+    // ---- 3. KV cache with spare capacity (fused only) ---------------------------------
+    // K and V stored [heads][capacity][d] with only the first kv_len rows per head filled,
+    // the rest NaN: any read past kv_len would poison the output. The result must be
+    // bit-identical to the packed layout (same arithmetic, only the addresses differ).
+    for (const gpu::AttentionShape& packed :
+         {gpu::AttentionShape{12, 1, 300, 64, true}, gpu::AttentionShape{3, 5, 37, 32, true}}) {
+        const int capacity = packed.kv_len + 45;
+        const size_t nq = static_cast<size_t>(packed.heads) * packed.q_len * packed.d;
+        const size_t nk = static_cast<size_t>(packed.heads) * packed.kv_len * packed.d;
+        std::vector<float> Q(nq), K(nk), V(nk);
+        fill_random(Q, 7, -1.0f, 1.0f);
+        fill_random(K, 8, -1.0f, 1.0f);
+        fill_random(V, 9, -1.0f, 1.0f);
+        const size_t nk_cap = static_cast<size_t>(packed.heads) * capacity * packed.d;
+        std::vector<float> Kc(nk_cap, NAN), Vc(nk_cap, NAN);
+        for (int h = 0; h < packed.heads; ++h) {
+            for (size_t i = 0; i < static_cast<size_t>(packed.kv_len) * packed.d; ++i) {
+                Kc[static_cast<size_t>(h) * capacity * packed.d + i] = K[static_cast<size_t>(h) * packed.kv_len * packed.d + i];
+                Vc[static_cast<size_t>(h) * capacity * packed.d + i] = V[static_cast<size_t>(h) * packed.kv_len * packed.d + i];
+            }
+        }
+        gpu::AttentionShape with_capacity = packed;
+        with_capacity.kv_capacity = capacity;
+        check("fused kv_capacity=" + std::to_string(capacity) + " " + describe(packed), run_gpu(true, Q, K, V, packed),
+              run_gpu(true, Q, Kc, Vc, with_capacity), 0.0);
     }
 
     CUDA_CHECK(cudaDeviceSynchronize());
