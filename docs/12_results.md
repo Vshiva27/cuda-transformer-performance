@@ -434,13 +434,31 @@ as a share of the 1,555 GB/s peak.
 **Prediction vs measurement.** The prediction was "time ∝ bytes of W": FP16 2×, INT8 4×. FP16
 held (1.89–1.92×, still 83–86% of peak). **INT8 did not:** 2.1–2.7× instead of 4×, because it
 reaches only 46–61% of DRAM peak, so DRAM bandwidth is no longer its limit. The kernels use no
-local memory (`resource_usage.txt`: `LOCAL:0`, 31–36 registers). Unverified explanations, to be
-checked with the `quantization` Nsight Compute case (not run yet):
-- per 16 bytes of weights, an INT8 lane also reads 64 bytes of x from L1 and executes 16
-  int-to-float conversions and 16 FMAs (FP32: 16 bytes of x, 4 FMAs), so the work per byte of W
-  is 4× higher, and instruction issue or L1 throughput may now be the limit;
-- each lane has one 16-byte load in flight per loop iteration, and an INT8 row is only 4 KB
-  (8 iterations), so the fixed per-row cost (warp reduction, store) is a larger share.
+local memory (`resource_usage.txt`: `LOCAL:0`, 31–36 registers).
+
+**Why, measured with Nsight Compute** (`profile_targets quantization`, MLP up 11008 × 4096;
+[`ncu_quantization_details.txt`](../profiling/reports/NVIDIA_A100_SXM4_40GB/ncu_quantization_details.txt)).
+ncu locks the clock to base, so its durations are a little longer than the benchmark's.
+
+| Kernel | DRAM read | DRAM throughput | **L1/TEX throughput** | L1 hit rate | SM throughput | Cycles per issued instruction |
+|---|---|---|---|---|---|---|
+| FP32 weights | 180.4 MB | 89% | 21% | 50% | 9% | 200 |
+| FP16 weights | 90.2 MB | 87% | 51% | 80% | 14% | 88 |
+| INT8 weights | 45.2 MB | 48% | **93%** | 88% | 38% | 49 |
+
+- **DRAM traffic is exactly as designed:** 4, 2 and 1 byte per weight (180.4 / 90.2 / 45.2 MB),
+  so the weights are read once and the 4× byte reduction happened.
+- **The limit moved to L1.** Every weight is multiplied by one FP32 element of x, and each warp
+  reads x through L1, so x costs 4 bytes of L1 traffic per weight *whatever the weight type*.
+  As the weight bytes shrink, that fixed x traffic dominates: L1/TEX throughput rises from 21%
+  (FP32) to 51% (FP16) to **93% (INT8)**, the unit's ceiling, while DRAM falls to 48%. The INT8
+  kernel moves 406 MB through L1 (12.7 M sectors) to read 45 MB of weights.
+- **Not the cause:** compute (SM 38%, issue slots 19% busy), local memory, or bank conflicts (0).
+  Warps still spend about half their stall time waiting on L1 loads.
+
+So the first unverified guess (x reads per byte of W) was right, specifically the L1 side of it,
+and the instruction-issue side was not. The fix is to reuse each x value for several rows:
+a warp that computes R outputs reads x once for R rows, cutting x's L1 traffic by R.
 
 **GPT-2-small decode shapes** (2–9 MB of FP32 weights, which fit in L2) take 4.9–6.7 µs in every
 format, and INT8 is only 1.02–1.09× faster than FP32: at this size the time is launch and

@@ -440,9 +440,11 @@ holds for every output. On a 64 × 1000 matrix with one outlier (50), the relati
 
 - **FP16 matched the prediction:** 1.89–1.92× faster than FP32, at 83–86% of peak bandwidth.
 - **INT8 missed it:** 2.1–2.7× faster than FP32 instead of ~4×, and only 1.10–1.41× faster than
-  FP16. INT8 reaches just 46–61% of DRAM peak, so something other than DRAM bandwidth limits it.
-  Likely suspects (unverified until the `quantization` Nsight Compute case runs): 4× more x
-  reads, conversions and FMAs per byte of W, and short 4 KB rows.
+  FP16. INT8 reaches just 46–61% of DRAM peak. **Nsight Compute shows why:** DRAM reads are
+  exactly 1 byte per weight, but every weight also needs 4 bytes of x, read through L1 by each
+  warp. That x traffic does not shrink with the weights, so L1/TEX throughput rises from 21%
+  (FP32) to 51% (FP16) to 93% (INT8): the bottleneck moved from DRAM to L1. The fix is to reuse
+  each x value across several output rows per warp.
 - **GPT-2-small shapes** (weights fit in L2) take 5–7 µs in every format; INT8 gains ≤ 1.09×.
 - **Accuracy:** INT8 adds 0.4% relative RMS error on uniform weights (FP16: 0.02%). With 16
   outliers, per-tensor scales give 20% error; per-row scales give 1.5%.

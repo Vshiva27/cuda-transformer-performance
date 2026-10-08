@@ -196,8 +196,9 @@ A100 charts in [assets/NVIDIA_A100_SXM4_40GB/](assets/NVIDIA_A100_SXM4_40GB/).
 
 **INT8 weight-only quantization (A100, decode, 7B-class layers):** FP16 weights are 1.9× faster
 than FP32, as predicted from the bytes. INT8 weights are **2.1–2.7×** faster, not the predicted 4×:
-INT8 reaches only 46–61% of DRAM peak, so something other than bytes now limits it (still being
-profiled). Per-row scales keep the error at 1.5% when a few outlier weights are present; a single
+INT8 reaches only 46–61% of DRAM peak. Nsight Compute shows why: weight bytes did drop 4×, but
+each weight still needs 4 bytes of activations read through L1, and L1 hits 93% of its ceiling.
+The bottleneck moved from DRAM to L1. Per-row scales keep the error at 1.5% when a few outlier weights are present; a single
 per-tensor scale gives 20% ([docs/12 §9.1](docs/12_results.md#91-int8-weight-only-quantization-decode-gemv-docs08-9)).
 
 ## Profiler-verified results
