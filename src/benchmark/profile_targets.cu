@@ -11,7 +11,7 @@
 //
 // Usage:
 //   ./profile_targets [case] [--reps N]
-//   case: vector_add | gemm | precision | softmax | layernorm | attention | all (default)
+//   case: vector_add | gemm | precision | softmax | layernorm | attention | quantization | all (default)
 //   --reps N: launch each target N times (use > 1 for Nsight Systems timelines)
 //
 // Every launch is wrapped in an NVTX range named after it (if NVTX is available),
@@ -19,6 +19,7 @@
 // Explained in docs/10_nsight_profiling.md.
 // =============================================================================
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -26,9 +27,11 @@
 #include <vector>
 
 #include "attention.cuh"
+#include "cpu/cpu_ops.h"
 #include "layernorm.cuh"
 #include "matmul.cuh"
 #include "precision.cuh"
+#include "quantization.cuh"
 #include "softmax.cuh"
 #include "utils/cuda_check.cuh"
 #include "utils/device_buffer.cuh"
@@ -171,6 +174,33 @@ static void case_attention() {
            [&] { gpu::attention_fused(q1.data(), Kc.data(), Vc.data(), o1.data(), gpu::AttentionShape{heads, 1, ctx, d, true}); });
 }
 
+
+static void case_quantization() {
+    // 7B-class MLP up-projection, one decoding step: weights (45-180 MB) are larger than L2,
+    // so DRAM bytes read should be ~4, 2 and 1 byte per weight.
+    const int N = 11008, K = 4096;
+    const size_t nk = static_cast<size_t>(N) * K;
+    std::printf("\n[quantization] decode GEMV, N = %d outputs, K = %d inputs\n", N, K);
+    std::vector<float> h_W(nk);
+    fill_random(h_W, 18);
+    std::vector<std::int8_t> h_q(nk);
+    std::vector<float> h_scale(N);
+    cpu::quantize_int8(h_W.data(), h_q.data(), h_scale.data(), N, K, false);
+    DeviceBuffer<float> W(nk), x = random_buffer(K, 19), y(N), scale(N);
+    DeviceBuffer<__half> Wh(nk);
+    DeviceBuffer<std::int8_t> q(nk);
+    W.copy_from_host(h_W);
+    q.copy_from_host(h_q);
+    scale.copy_from_host(h_scale);
+    gpu::float_to_half(W.data(), Wh.data(), static_cast<int>(nk));
+    CUDA_CHECK(cudaDeviceSynchronize());
+    std::printf("  (1 conversion kernel ran before this list starts counting)\n");
+    g_kernel_index += 1;
+    target("gemv fp32 weights", 1, [&] { gpu::gemv_fp32(W.data(), x.data(), y.data(), N, K); });
+    target("gemv fp16 weights", 1, [&] { gpu::gemv_fp16(Wh.data(), x.data(), y.data(), N, K); });
+    target("gemv int8 weights, per-row scale", 1,
+           [&] { gpu::gemv_int8(q.data(), scale.data(), x.data(), y.data(), N, K); });
+}
 int main(int argc, char** argv) {
     std::string which = "all";
     for (int i = 1; i < argc; ++i) {
@@ -197,6 +227,7 @@ int main(int argc, char** argv) {
     run("softmax", case_softmax);
     run("layernorm", case_layernorm);
     run("attention", case_attention);
+    run("quantization", case_quantization);
     if (!any) {
         std::fprintf(stderr, "unknown case '%s'\n", which.c_str());
         return EXIT_FAILURE;

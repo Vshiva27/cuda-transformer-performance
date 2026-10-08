@@ -55,7 +55,7 @@ cmake --build build -j "$(nproc)"
 ctest --test-dir build --output-on-failure 2>&1 | tee "$OUT/tests.txt"
 
 # ---- 4. Benchmarks -------------------------------------------------------------------
-for bench in vector_add matmul softmax layernorm precision attention; do
+for bench in vector_add matmul softmax layernorm precision attention quantization; do
     echo
     echo "================ bench_$bench ================"
     "./build/bench_$bench" --csv "$OUT/$bench.csv" 2>&1 | tee "$OUT/$bench.txt"

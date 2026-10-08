@@ -4,7 +4,7 @@
 # docs/10_nsight_profiling.md sections 5-7.
 #
 #   bash profiling/ncu_kernels.sh <case>
-#   case: vector_add | gemm | precision | softmax | layernorm | attention
+#   case: vector_add | gemm | precision | softmax | layernorm | attention | quantization
 #
 # Output (profiling/reports/<GPU>/):
 #   ncu_<case>.ncu-rep        full report (open in the Nsight Compute GUI on your PC)

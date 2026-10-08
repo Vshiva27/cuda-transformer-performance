@@ -60,6 +60,7 @@ add_library(ctp_core STATIC
   kernels/matmul_fp16.cu
   kernels/matmul_wmma.cu
   kernels/attention.cu
+  kernels/gemv.cu
 )
 target_include_directories(ctp_core PUBLIC
   ${PROJECT_SOURCE_DIR}/src
@@ -86,6 +87,9 @@ target_link_libraries(bench_precision PRIVATE ctp_core)
 
 add_executable(bench_attention src/benchmark/bench_attention.cu)
 target_link_libraries(bench_attention PRIVATE ctp_core)
+
+add_executable(bench_quantization src/benchmark/bench_quantization.cu)
+target_link_libraries(bench_quantization PRIVATE ctp_core)
 
 # -----------------------------------------------------------------------------
 # Profiling driver (docs/10_nsight_profiling.md). NVTX ranges label each launch
@@ -130,3 +134,7 @@ add_test(NAME test_precision COMMAND test_precision)
 add_executable(test_attention tests/test_attention.cu)
 target_link_libraries(test_attention PRIVATE ctp_core)
 add_test(NAME test_attention COMMAND test_attention)
+
+add_executable(test_quantization tests/test_quantization.cu)
+target_link_libraries(test_quantization PRIVATE ctp_core)
+add_test(NAME test_quantization COMMAND test_quantization)

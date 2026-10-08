@@ -18,7 +18,7 @@ import os
 import sys
 from collections import OrderedDict
 
-CPP_BENCHMARKS = ["vector_add", "matmul", "softmax", "layernorm", "precision", "attention"]
+CPP_BENCHMARKS = ["vector_add", "matmul", "softmax", "layernorm", "precision", "attention", "quantization"]
 
 
 # -----------------------------------------------------------------------------
@@ -159,6 +159,25 @@ def headlines(data: dict, torch_rows: list) -> list:
         full = metric(find(at, experiment="B kv cache", impl="recompute all (q_len=L)", shape=f"context={ctx}"), "ms")
         line(f"**KV cache, context {ctx}:** one decode step {fmt(cached, 4)} ms with cache vs {fmt(full, 4)} ms "
              f"recomputing attention → {ratio(full, cached)}")
+
+    # INT8 weight-only quantization, decode GEMV (weights larger than L2)
+    qz = data.get("quantization", [])
+    q_shape = "7B-class MLP up 11008x4096"
+    q = {name: find(qz, experiment="A decode gemv", impl=name, shape=q_shape)
+         for name in ("fp32 weights", "fp16 weights", "int8 weights, per-row scale")}
+    q_ms = {name: metric(row, "ms") for name, row in q.items()}
+    line(f"**Decode GEMV {q_shape} (ms, GB/s):** FP32 {fmt(q_ms['fp32 weights'], 4)} "
+         f"({fmt(metric(q['fp32 weights'], 'gbs'), 1)}), FP16 {fmt(q_ms['fp16 weights'], 4)} "
+         f"({fmt(metric(q['fp16 weights'], 'gbs'), 1)}), INT8 {fmt(q_ms['int8 weights, per-row scale'], 4)} "
+         f"({fmt(metric(q['int8 weights, per-row scale'], 'gbs'), 1)}) → INT8 vs FP32 "
+         f"{ratio(q_ms['fp32 weights'], q_ms['int8 weights, per-row scale'])}, INT8 vs FP16 "
+         f"{ratio(q_ms['fp16 weights'], q_ms['int8 weights, per-row scale'])}")
+    for case in ("uniform", "uniform + 16 outliers"):
+        exp = f"B accuracy, {case}"
+        notes = {s: (find(qz, experiment=exp, impl=s) or {}).get("note", "n/a")
+                 for s in ("fp16", "int8, per-row scale", "int8, per-tensor scale")}
+        line(f"**Weight quantization error, {case} (4096x4096):** FP16 {notes['fp16']}; "
+             f"INT8 per-row {notes['int8, per-row scale']}; INT8 per-tensor {notes['int8, per-tensor scale']}")
     return out
 
 

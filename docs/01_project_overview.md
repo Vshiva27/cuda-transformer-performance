@@ -140,7 +140,7 @@ Each phase ends with a full explanation before the next one starts.
 | 4 | PyTorch baseline | `python/*.py` | framework overhead, cuBLAS as a reference ceiling |
 | 5 | Softmax | `softmax.cu` | numerical stability, reductions, `__shfl_sync()` |
 | 6 | LayerNorm | `layernorm.cu` | mean/variance reduction, fused residual-add + LayerNorm |
-| 7 | Precision + GEMM v5 | FP16 GEMM, warp-level Tensor Core GEMM (WMMA) | FP16 vs FP32, FP32 accumulation, warp-level MMA, error measurement, quantization (concept) |
+| 7 | Precision + GEMM v5 | FP16 GEMM, warp-level Tensor Core GEMM (WMMA) | FP16 vs FP32, FP32 accumulation, warp-level MMA, error measurement, INT8 weight-only quantization (decode GEMV) |
 | 8 | Attention | `attention.cu` | Q/K/V, QKᵀ, scaling, KV cache (concept) |
 | 9 | Benchmark framework | CSV output, experiments | throughput, speedup tables, size sweeps |
 | 10 | Nsight profiling | `profiling/` | timeline, occupancy, throughput, bottleneck analysis |

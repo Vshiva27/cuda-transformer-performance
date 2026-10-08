@@ -211,8 +211,9 @@ two FP16 values is exact in FP32, so only the additions round.
 **What is quantization?**
 Storing values as small integers plus a scale: q = round(w/scale), w ≈ q·scale. INT8 is 1 byte
 per weight, INT4 is half a byte. Per-channel or per-group scales handle outliers. Weight-only
-quantization dequantizes inside the GEMM and mainly speeds up memory-bound decode. I explained it
-conceptually; implementing an INT8 weight-only GEMM is a natural extension.
+quantization dequantizes inside the GEMM and mainly speeds up memory-bound decode. I implemented it
+in an INT8 weight-only decode GEMV: same kernel for FP32, FP16 and INT8 weights, one scale per
+output row applied once after the sum, and an outlier experiment comparing per-row with per-tensor scales.
 
 ---
 

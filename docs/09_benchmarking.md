@@ -288,7 +288,8 @@ scripts/run_all.sh
    ├─ bench_softmax    --csv … │  and writes CSV rows   (→ .csv)
    ├─ bench_layernorm  --csv … │
    ├─ bench_precision  --csv … │
-   ├─ bench_attention  --csv … ┘
+   ├─ bench_attention  --csv … │
+   ├─ bench_quantization --csv … ┘
    ├─ python/benchmark.py --csv pytorch.csv
    └─ python/summarize.py  →  summary.md (headline numbers + every table)
 ```

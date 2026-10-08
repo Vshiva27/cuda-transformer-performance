@@ -9,6 +9,7 @@
 // =============================================================================
 
 #include <cstddef>
+#include <cstdint>
 
 namespace cpu {
 
@@ -45,5 +46,19 @@ void attention(const float* Q, const float* K, const float* V, float* O, int hea
 // h = x + residual (float addition, exactly as on the GPU), then y = LayerNorm(h).
 void add_layernorm(const float* x, const float* residual, const float* gamma, const float* beta, float* h, float* y,
                    int rows, int cols, float eps);
+
+// Symmetric INT8 quantization of a row-major (rows x cols) matrix (docs/08 §9):
+//   scale = max|w| / 127,  q = round(w / scale) in [-127, 127],  w ~= q * scale.
+// per_tensor = false: one scale per row (= per output channel of a W[out][in] matrix);
+// per_tensor = true : the same scale (from the whole matrix) stored for every row.
+// Done once, offline, on the CPU: real inference engines also quantize weights ahead of time.
+void quantize_int8(const float* W, std::int8_t* q, float* scale, int rows, int cols, bool per_tensor);
+
+// y = W x in double precision, W is N x K row-major (one row per output).
+void gemv_f64(const float* W, const float* x, double* y, int N, int K);
+
+// Same product for INT8 weights, computed exactly from q and scale:
+//   y[n] = scale[n] * sum_k q[n][k] * x[k]
+void gemv_int8_f64(const std::int8_t* q, const float* scale, const float* x, double* y, int N, int K);
 
 }  // namespace cpu

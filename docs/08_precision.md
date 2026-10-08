@@ -2,7 +2,8 @@
 
 Files covered: `kernels/precision.cuh`, `kernels/matmul_fp16.cu`, `kernels/matmul_wmma.cu`
 (GEMM v5), `src/utils/precision_utils.cuh`, `src/cpu/cpu_ops.cpp` (`cpu::matmul_f64`),
-`tests/test_precision.cu`, `src/benchmark/bench_precision.cu`.
+`tests/test_precision.cu`, `src/benchmark/bench_precision.cu`; quantization (§9): `kernels/quantization.cuh`,
+`kernels/gemv.cu`, `cpu::quantize_int8`, `tests/test_quantization.cu`, `src/benchmark/bench_quantization.cu`.
 
 ---
 
@@ -358,7 +359,7 @@ Write the 16 × 16 FP32 result to C[tile_row..][tile_col..], with row length N.
 
 ---
 
-## 9. Quantization (concept)
+## 9. Quantization
 
 **Quantization** stores numbers as small **integers** plus a **scale**, instead of floats.
 
@@ -387,9 +388,57 @@ error                     = [0.0019, 0, 0.0010, 0.0003]
 - **Cost:** accuracy. Each method trades bits for error. It needs calibration data and outlier
   handling (methods such as GPTQ, AWQ, SmoothQuant).
 
-This project implements FP16 and explains quantization conceptually, as planned. Adding an INT8
-weight-only GEMM would be a natural extension: same tiled structure, but loading int8 weights
-and multiplying by the scale.
+### Implemented: INT8 weight-only GEMV for decoding (`kernels/gemv.cu`)
+
+This project implements the case where weight-only quantization pays off: **decoding**, where one
+token's activations x (length K) are multiplied by each weight matrix, y = W x. With M = 1 there
+is no reuse of W, so the kernel's time is the time to read W once (03 §5). Three versions run the
+**same kernel** and differ only in the type of W, so the benchmark isolates bytes per weight:
+
+| Weights | Bytes per weight | 7B-class MLP up (11008 × 4096) | Prediction if bandwidth-bound |
+|---|---|---|---|
+| FP32 | 4 | 180.4 MB | 1× |
+| FP16 | 2 | 90.2 MB | ~2× faster |
+| INT8 + one FP32 scale per row | 1 (+ 4 / K) | 45.1 MB | ~4× faster |
+
+How the kernel works:
+
+- **Layout.** W is stored N × K, one row per output, like PyTorch's `nn.Linear.weight`
+  `[out_features, in_features]`. Output n needs exactly row n, which is contiguous in memory.
+- **One warp per output.** The 32 lanes walk along row n together, so every load is coalesced.
+  Each lane keeps a partial sum; `warp_reduce_sum` (05) adds the 32 partial sums. 8 warps per
+  block, so 8 outputs per block.
+- **16-byte loads.** Each lane loads one `uint4` per step: 4 FP32, 8 FP16 or 16 INT8 weights.
+  A warp reads 512 contiguous bytes per step whatever the type; INT8 just needs a quarter of the
+  steps. Rows whose length isn't a multiple of 16 bytes use a one-weight-per-load fallback.
+- **The scale is applied once per output.** Because one scale covers the whole row,
+  `Σ x·(q·s) = s · Σ x·q`: the kernel sums `x·q` in FP32 and multiplies by s at the end. Same
+  result, K − 1 fewer multiplies. INT8 → float conversion is exact.
+- **Quantized offline.** `cpu::quantize_int8` runs once on the CPU (round to nearest, ties to
+  even; clamp to ±127; an all-zero row gets scale 0), as real engines quantize ahead of time.
+  `per_tensor = true` stores one scale for the whole matrix in every row, so the same kernel
+  measures both scale granularities.
+
+Experiments in `bench_quantization`:
+
+- **A (speed):** GPT-2-small decode shapes (2–9 MB of FP32 weights) and 7B-class shapes with
+  LLaMA-7B sizes (64–180 MB). Only weights larger than L2 measure DRAM; rows whose weights fit in
+  L2 are marked `*` (09 §21 item 2). Small shapes take microseconds, so launch overhead is a large
+  part of their time; use the 7B-class rows for the bandwidth claim.
+- **B (accuracy):** error of y against the exact product of the **original** FP32 weights (the
+  error caused by storage, not by the arithmetic), for uniform weights and for the same weights
+  with 16 outliers of |w| = 50. Per-tensor scales give every weight a step of 50/127 ≈ 0.39;
+  per-row scales confine that to the 16 rows with an outlier.
+
+**Verified before any GPU run** (CPU, g++): `cpu::quantize_int8` reproduces the hand example above
+exactly (q = [30, −127, 79, 5], scale = 0.5/127). The bound |y_int8 − y_exact| ≤ scale/2 · Σ|x|
+holds for every output. On a 64 × 1000 matrix with one outlier (50), the relative RMS error is
+2.5% with per-row scales and 21% with a per-tensor scale. The GPU timings are not measured yet;
+they go into `benchmarks/<GPU>/quantization.*` with the next run.
+
+What this does **not** do: INT4 or group-wise scales (one scale per 64–128 weights), INT8 Tensor
+Cores or activation quantization (W8A8), calibration on a real model (the weights are random),
+and batched decode (M > 1), where W is reused and the GEMM moves towards compute-bound.
 
 ---
 
@@ -495,3 +544,22 @@ from a CPU emulation of IEEE FP16 rounding and of `__hfma` accumulation.
 
 ### `src/benchmark/bench_precision.cu`
 Experiments A–D (§8).
+
+### `kernels/quantization.cuh`, `kernels/gemv.cu`
+Decode GEMV y = W x with FP32, FP16 or INT8 weights (§9): one template kernel
+`gemv_kernel<WT, VECTORIZED>`, one warp per output, 16-byte loads, FP32 accumulation, and the
+per-row scale applied once after the warp reduction. Launchers: `gpu::gemv_fp32`,
+`gpu::gemv_fp16`, `gpu::gemv_int8`.
+
+### `src/cpu/cpu_ops.cpp` — `cpu::quantize_int8`, `cpu::gemv_f64`, `cpu::gemv_int8_f64`
+Symmetric INT8 quantization (per row or per tensor), and exact double-precision GEMV references
+for FP32 weights and for INT8 weights (computed from q and scale).
+
+### `tests/test_quantization.cu`
+The hand example from §9, an all-zero row, per-tensor scales; 11 shapes × 4 kernels (FP32, FP16,
+INT8 per-row, INT8 per-tensor) against the exact product of the weights each kernel reads
+(tolerance 2e-5 of the output scale), including N not a multiple of 8 and K that uses the
+fallback path; and the bound |y_int8 − y_exact| ≤ scale/2 · Σ|x| for every output.
+
+### `src/benchmark/bench_quantization.cu`
+Experiments A (decode speed) and B (accuracy, per-row vs per-tensor scales, outliers), §9.

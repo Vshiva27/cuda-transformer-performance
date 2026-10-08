@@ -65,6 +65,7 @@ verified against a double-precision CPU reference before it is timed.
 | **Attention** | unfused (batched GEMM + softmax) → **fused online-softmax kernel**, causal mask, **KV-cache decode** | seq² memory, FlashAttention-style fusion, decode vs prefill |
 | **Vector add** | one thread/element → grid-stride loop | indexing, bandwidth ceiling (82% of peak) |
 | **Precision** | FP32 vs FP16 vs FP16-in / FP32-accumulate | measured: FP16 accumulation ~8,000× more error at K = 16K, and overflow |
+| **Quantization** | decode GEMV with FP32 → FP16 → **INT8 weights** (per-row or per-tensor scale) | weight-only quantization: 4× fewer bytes for memory-bound decode, outliers vs scale granularity |
 
 ## How it works
 
@@ -295,4 +296,6 @@ A step-by-step guide that explains every kernel line by line, written to be read
 - PyTorch comparisons are **FP32, eager mode, these shapes**. cuBLAS remains faster than our GEMMs.
 - The fused attention kernel is FlashAttention-*style* (online softmax, no score matrix),
   not FlashAttention: it has no query/key tiling or Tensor Cores.
-- Quantization (INT8/INT4) is explained conceptually, not implemented.
+- Quantization is **INT8 weight-only, for the decode GEMV only** (per-row or per-tensor scales).
+  No INT4, no group-wise scales, no INT8 Tensor Cores or activation quantization, and the weights
+  are random, not a real model. Its GPU results are not measured yet ([docs/08 §9](docs/08_precision.md)).

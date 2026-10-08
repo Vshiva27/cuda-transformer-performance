@@ -138,4 +138,47 @@ void add_layernorm(const float* x, const float* residual, const float* gamma, co
     layernorm(h, gamma, beta, y, rows, cols, eps);
 }
 
+void quantize_int8(const float* W, std::int8_t* q, float* scale, int rows, int cols, bool per_tensor) {
+    const std::size_t n = static_cast<std::size_t>(rows) * cols;
+    float tensor_max = 0.0f;
+    if (per_tensor) {
+        for (std::size_t i = 0; i < n; ++i) tensor_max = std::max(tensor_max, std::fabs(W[i]));
+    }
+    for (int r = 0; r < rows; ++r) {
+        const float* w_row = W + static_cast<std::size_t>(r) * cols;
+        float max_abs = tensor_max;
+        if (!per_tensor) {
+            max_abs = 0.0f;
+            for (int c = 0; c < cols; ++c) max_abs = std::max(max_abs, std::fabs(w_row[c]));
+        }
+        // An all-zero row gets scale 0 and q = 0, which dequantizes to exactly 0.
+        const float s = max_abs / 127.0f;
+        scale[r] = s;
+        for (int c = 0; c < cols; ++c) {
+            // nearbyint rounds to the nearest integer (ties to even); |w| <= max_abs keeps
+            // the result in [-127, 127], the clamp only guards against rounding at the edge.
+            const float v = s > 0.0f ? std::nearbyint(w_row[c] / s) : 0.0f;
+            q[static_cast<std::size_t>(r) * cols + c] = static_cast<std::int8_t>(std::min(127.0f, std::max(-127.0f, v)));
+        }
+    }
+}
+
+void gemv_f64(const float* W, const float* x, double* y, int N, int K) {
+    for (int n = 0; n < N; ++n) {
+        const float* w_row = W + static_cast<std::size_t>(n) * K;
+        double acc = 0.0;
+        for (int k = 0; k < K; ++k) acc += static_cast<double>(w_row[k]) * x[k];
+        y[n] = acc;
+    }
+}
+
+void gemv_int8_f64(const std::int8_t* q, const float* scale, const float* x, double* y, int N, int K) {
+    for (int n = 0; n < N; ++n) {
+        const std::int8_t* q_row = q + static_cast<std::size_t>(n) * K;
+        double acc = 0.0;
+        for (int k = 0; k < K; ++k) acc += static_cast<double>(q_row[k]) * x[k];
+        y[n] = acc * scale[n];
+    }
+}
+
 }  // namespace cpu
