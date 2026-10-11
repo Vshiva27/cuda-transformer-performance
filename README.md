@@ -2,8 +2,8 @@
 
 # CUDA Transformer Inference Performance
 
-**The GPU kernels behind Transformer inference, written from scratch in CUDA,
-optimized step by step, and explained with profiler evidence.**
+**A from-scratch CUDA kernel library for Transformer inference: tested against CPU references,
+benchmarked against PyTorch and cuBLAS, profiled with Nsight, and running GPT-2 end to end.**
 
 GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores · INT8 quantization
 
@@ -14,11 +14,30 @@ GEMM · Softmax · LayerNorm · Attention · KV cache · FP16 Tensor Cores · IN
 [![Profiled](https://img.shields.io/badge/profiled-Nsight%20Compute%20%7C%20Systems-555555)](docs/10_nsight_profiling.md)
 [![Baseline](https://img.shields.io/badge/baseline-PyTorch%20%2F%20cuBLAS-EE4C2C?logo=pytorch&logoColor=white)](python/)
 
-[Results](docs/12_results.md) · [Optimization story](docs/11_optimization.md) · [Challenges](docs/11_optimization.md#9-challenges-faced-and-how-they-were-solved) · [Profiling](docs/10_nsight_profiling.md) · [Docs](docs/01_project_overview.md) · [Run it](#run-it)
+[Results](docs/12_results.md) · [Optimization log](docs/11_optimization.md) · [Challenges](docs/11_optimization.md#9-challenges-faced-and-how-they-were-solved) · [Profiling](docs/10_nsight_profiling.md) · [Architecture](docs/01_project_overview.md) · [Docker](docs/docker.md) · [Run it](#run-it)
 
 </div>
 
 ---
+
+## Overview
+
+This project implements the core kernels of LLM inference in CUDA C++ without external kernel
+libraries: GEMM up to WMMA Tensor Cores, softmax, LayerNorm with residual fusion, fused causal
+attention with a KV cache, and INT8 weight-only decode GEMV. They are delivered as one static
+library (`ctp_core`) with:
+
+- **Correctness tests**: 7 `ctest` suites that compare every kernel against a double-precision
+  CPU reference.
+- **Benchmark suite**: 7 programs that write CSV, plus a PyTorch/cuBLAS baseline on the same
+  shapes, and a one-command pipeline (`scripts/run_all.sh`) that produces a per-GPU report.
+- **Profiling pipeline**: Nsight Compute and Nsight Systems scripts, with stored reports for
+  every optimization claim.
+- **LLM integration**: a PyTorch extension that runs GPT-2 (124M to 1.5B) on these kernels in
+  FP32, FP16 or INT8. In FP32, its logits match Hugging Face to ~1e-6 and its greedy tokens are identical.
+- **Deployment**: a Docker image and Compose file for Linux GPU servers, plus Colab notebooks.
+
+The GPU is detected at run time. Results are measured on a Tesla T4 and A100 (40 GB and 80 GB).
 
 ## Highlights
 
@@ -172,7 +191,7 @@ FP32 accumulation, none.
 
 </details>
 
-### KV cache: why LLM decoding stores past keys and values
+### KV cache: 30× cheaper decode steps at 2K context
 
 Generating one token with a KV cache means one query against the cached keys. Without the cache,
 attention is recomputed for every token, and the gap grows with context length.
@@ -263,7 +282,7 @@ docker run --rm --gpus all -v "$PWD/benchmarks:/workspace/cuda-transformer-perfo
 
 Profiling, GPT-2, Jupyter / Colab local runtime, volumes and troubleshooting: [docs/docker.md](docs/docker.md).
 
-Step by step:
+Individual steps:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
@@ -314,24 +333,20 @@ llm/            GPT-2 text generation on these kernels (PyTorch extension)
 notebooks/      Colab notebooks
 benchmarks/     measured results, one folder per GPU
 assets/         README charts, generated from the results by make_charts.js
-docs/           the learning guide (below)
+docker/         container entry point (Dockerfile and docker-compose.yml at the root)
+docs/           design notes, results and profiling analysis (below)
 ```
 
-## Documentation
+## Technical documentation
 
-A step-by-step guide that explains every kernel line by line, written to be read in order:
+| Area | Documents |
+|---|---|
+| Architecture | [Project overview](docs/01_project_overview.md) · [Execution model and vector add](docs/02_cuda_fundamentals.md) · [Memory hierarchy and roofline](docs/03_memory_hierarchy.md) |
+| Kernel design | [GEMM](docs/04_matrix_multiplication.md) · [Softmax](docs/05_softmax.md) · [LayerNorm and fusion](docs/06_layernorm.md) · [Attention and KV cache](docs/07_attention.md) · [Precision and quantization](docs/08_precision.md) |
+| Performance | [Benchmarking methodology](docs/09_benchmarking.md) · [Nsight profiling](docs/10_nsight_profiling.md) · [Optimization log and challenges](docs/11_optimization.md) · [Results](docs/12_results.md) |
+| Integration and deployment | [GPT-2 on the kernels](docs/14_llm_integration.md) · [Docker](docs/docker.md) |
 
-| # | Topic | # | Topic |
-|---|---|---|---|
-| [01](docs/01_project_overview.md) | Project overview and architecture | [08](docs/08_precision.md) | FP32 / FP16, Tensor Cores, quantization |
-| [02](docs/02_cuda_fundamentals.md) | CUDA fundamentals, vector add | [09](docs/09_benchmarking.md) | Benchmarking methodology |
-| [03](docs/03_memory_hierarchy.md) | Memory hierarchy and the roofline | [10](docs/10_nsight_profiling.md) | Nsight profiling and measured hypotheses |
-| [04](docs/04_matrix_multiplication.md) | GEMM v1–v4, with 4×4 traces | [11](docs/11_optimization.md) | The optimization story, and challenges faced (§9) |
-| [05](docs/05_softmax.md) | Softmax and warp shuffles | [12](docs/12_results.md) | All measured results |
-| [06](docs/06_layernorm.md) | LayerNorm and kernel fusion | [13](docs/13_interview_questions.md) | Interview questions and answers |
-| [07](docs/07_attention.md) | Attention and the KV cache | [14](docs/14_llm_integration.md) | Running GPT-2 on these kernels |
-
-## Honest limits
+## Limitations
 
 - Measured on **two Colab GPUs**: the main results on a Tesla T4 (one run; its clock visibly
   throttles on long kernels, so repeat runs before quoting small differences), and an A100-SXM4-40GB
