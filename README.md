@@ -254,6 +254,15 @@ bash scripts/run_all.sh        # build → tests (stops on failure) → benchmar
 # results: benchmarks/<GPU>/summary.md
 ```
 
+**Docker (any Linux server with an NVIDIA GPU, no local CUDA install):**
+
+```bash
+docker build -t cuda-transformer-performance .
+docker run --rm --gpus all -v "$PWD/benchmarks:/workspace/cuda-transformer-performance/benchmarks" cuda-transformer-performance
+```
+
+Profiling, GPT-2, Jupyter / Colab local runtime, volumes and troubleshooting: [docs/docker.md](docs/docker.md).
+
 Step by step:
 
 ```bash

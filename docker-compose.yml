@@ -1,0 +1,42 @@
+# Docker Compose for a Linux server with an NVIDIA GPU (docs/docker.md, part A).
+#
+#   docker compose build
+#   docker compose run --rm ctp                       # full pipeline (scripts/run_all.sh)
+#   docker compose run --rm ctp ctest --test-dir build --output-on-failure
+#   docker compose up jupyter                         # Jupyter on 127.0.0.1:8888 (Colab local runtime)
+#
+# Results are written straight into this checkout's benchmarks/ and profiling/reports/,
+# exactly where a native run puts them.
+x-ctp: &ctp
+  build:
+    context: .
+    args:
+      CUDA_ARCHS: "75;80;86;89;90"
+  image: cuda-transformer-performance:latest
+  working_dir: /workspace/cuda-transformer-performance
+  volumes:
+    - ./benchmarks:/workspace/cuda-transformer-performance/benchmarks
+    - ./profiling/reports:/workspace/cuda-transformer-performance/profiling/reports
+    - ctp-cache:/root/.cache          # Hugging Face models + compiled PyTorch extension
+  shm_size: "2gb"
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  ctp:
+    <<: *ctp
+    command: ["bash", "scripts/run_all.sh"]
+
+  jupyter:
+    <<: *ctp
+    command: ["jupyter"]
+    ports:
+      - "127.0.0.1:8888:8888"
+
+volumes:
+  ctp-cache:

@@ -1,0 +1,21 @@
+# Keep the build context small and the image reproducible.
+.git
+.github
+.claude
+.vscode
+.idea
+# The image builds its own build/ directory.
+build/
+build-*/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# Binary profiler reports (large); their text/CSV exports are kept.
+*.ncu-rep
+*.nsys-rep
+*.sqlite
+# Local Docker outputs and archives.
+docker-out/
+*.zip
+*.tar
+*.tar.gz
